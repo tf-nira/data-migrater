@@ -201,7 +201,7 @@ public class TableDataMapperUtil implements DataMapperUtil {
             } else if (fieldFormatRequest.getFieldCategory().equals(FieldCategory.DOC)) {
                 String fieldName = fieldFormatRequest.getFieldList().get(0).getFieldName();
 
-                if(fieldsCategoryMap.get(tableName).containsKey(fieldName))  {
+                if(fieldsCategoryMap.get(tableName).containsKey(fieldName) && resultSet.containsKey(fieldFormatRequest.getFieldToMap() + "_" + fieldName))  {
                     Document document = new Document();
 
                     byte[] byteVal = convertObjectToByteArray(resultSet.get(fieldFormatRequest.getFieldToMap() + "_" + fieldName));
