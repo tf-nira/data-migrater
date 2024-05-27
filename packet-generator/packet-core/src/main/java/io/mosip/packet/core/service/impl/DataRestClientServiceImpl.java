@@ -104,7 +104,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 
 				uriComponents = builder.build(false).encode();
 				LOGGER.debug(uriComponents.toUri().toString(), "URI");
-				obj = restApiClient.getApi(uriComponents.toUri(), responseType);
+				obj = restApiClient.getApi(uriComponents.toUri(), responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -154,7 +154,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 
 				uriComponents = builder.build(false).encode();
 				LOGGER.debug(uriComponents.toUri().toString(),"URI");
-				obj = restApiClient.getApi(uriComponents.toUri(), responseType);
+				obj = restApiClient.getApi(uriComponents.toUri(), responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -194,7 +194,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType);
+				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -209,7 +209,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	}
 
 	public Object postApi(String apiHostIpPort, String queryParamName, String queryParamValue, Object requestedData,
-						  Class<?> responseType, MediaType mediaType, boolean isAuthRequired) throws ApisResourceAccessException {
+						  Class<?> responseType, MediaType mediaType, boolean isAuthRequired, ApiName apiName) throws ApisResourceAccessException {
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::postApi()::entry");
 		RestApiClient.setIsAuthRequired(isAuthRequired);
 		Object obj = null;
@@ -228,7 +228,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType);
+				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -264,8 +264,8 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	}
 
 	@Override
-	public Object postApi(String apiHostIpPort, String queryParam, String queryParamValue, Object requestedData, Class<?> responseType, boolean isAuthRequired) throws ApisResourceAccessException {
-		return postApi(apiHostIpPort, queryParam, queryParamValue, requestedData, responseType, null, isAuthRequired);
+	public Object postApi(String apiHostIpPort, String queryParam, String queryParamValue, Object requestedData, Class<?> responseType, boolean isAuthRequired, ApiName apiName) throws ApisResourceAccessException {
+		return postApi(apiHostIpPort, queryParam, queryParamValue, requestedData, responseType, null, isAuthRequired, apiName);
 	}
 
 	/*
@@ -312,7 +312,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), null, requestedData, responseType);
+				obj = restApiClient.postApi(builder.toUriString(), null, requestedData, responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -360,7 +360,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType);
+				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -498,7 +498,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.putApi(builder.toUriString(), requestedData, responseType, mediaType);
+				obj = restApiClient.putApi(builder.toUriString(), requestedData, responseType, mediaType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -541,7 +541,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.patchApi(builder.toUriString(), requestedData, responseType);
+				obj = restApiClient.patchApi(builder.toUriString(), requestedData, responseType, apiName.getLoginType());
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);

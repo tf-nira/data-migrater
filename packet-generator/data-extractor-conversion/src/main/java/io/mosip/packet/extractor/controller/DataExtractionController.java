@@ -7,6 +7,7 @@ import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.DBImportResponse;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
+import io.mosip.packet.core.dto.packet.RegistrationIdRequest;
 import io.mosip.packet.core.exception.ServiceError;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.util.RestApiClient;
@@ -32,6 +33,26 @@ public class DataExtractionController {
 
     @Autowired
     DataExtractionService dataExtractionService;
+
+    @PostMapping(value = "/extractImageFromPacket", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ResponseWrapper> extractImageFromRID(@RequestBody RequestWrapper<RegistrationIdRequest> request) {
+        ResponseWrapper<String> responseWrapper = new ResponseWrapper();
+        try {
+            RegistrationIdRequest ridRequest = request.getRequest();
+            dataExtractionService.extractBioDataFromPacket(ridRequest);
+            responseWrapper.setResponse("Successfully Completed");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            responseWrapper.setResponse("Error : " + e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
+            responseWrapper.setResponse("Error : " + e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            responseWrapper.setResponse("Error : " + e.getMessage());
+        }
+        return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
+    }
 
     @PostMapping(value = "/importDBBioDataToImg", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResponseWrapper> importBioImgFromDB(@RequestBody RequestWrapper<DBImportRequest> request) {

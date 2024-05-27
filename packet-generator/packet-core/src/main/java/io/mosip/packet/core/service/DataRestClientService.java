@@ -63,7 +63,10 @@ public interface DataRestClientService<T> {
 	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired)
 			throws ApisResourceAccessException;
 
-	public T postApi(String apiHostIpPort, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired)
+	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, MediaType mediaType, boolean isAuthRequired)
+			throws ApisResourceAccessException;
+
+	public T postApi(String apiHostIpPort, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired, ApiName apiName)
 			throws ApisResourceAccessException;
 
 	/**

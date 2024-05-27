@@ -109,7 +109,6 @@ public class ConfigUtil {
 
                     List<HashMap<String, Object>> machines = null;
                     RequestWrapper wrapper = prepareMachineSearchDto(machineName);
-                    RestApiClient.setIsUserLoginRequired(true);
                     ResponseWrapper responseWrapper = (ResponseWrapper<PageDto>) restApiClient.postApi(ApiName.MASTER_MACHINE_SEARCH,null, null, wrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON);
 
                     if(responseWrapper.getResponse() != null) {
@@ -131,13 +130,6 @@ public class ConfigUtil {
                             }
                         }
                     }
-
-                    RestApiClient.setIsUserLoginRequired(false);
-
-    //                LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Copying private Key file into Local Disk (.mosipkeys) for Machine " + configUtil.machineName);
-    //                copyKeyFile(System.getProperty("user.dir") + File.separator + "privatekeys" + File.separator +
-    //                        machineId + ".reg.key", System.getProperty("user.dir") + File.separator + ".mosipkeys" + File.separator +
-    //                        "reg.key");
                 } else {
                     configUtil.keyIndex = CryptoUtil.computeFingerPrint(clientCryptoFacade.getClientSecurity().getEncryptionPublicPart(), null);
                 }

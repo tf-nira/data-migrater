@@ -20,7 +20,7 @@ public enum BioSubType {
     LEFT_THUMB("leftThumb", "Left Thumb"),
     RIGHT_THUMB("rightThumb", "Right Thumb"),
 
-    FACE("face", null),
+    FACE("face", ""),
 
     UNKNOWN("UNKNOWN", "UNKNOWN");
 
@@ -35,6 +35,13 @@ public enum BioSubType {
     public static BioSubType getBioSubType(String bioAttribute) {
         for(BioSubType subType : BioSubType.values())
             if(subType.bioAttribute.equals(bioAttribute))
+                return subType;
+        return BioSubType.UNKNOWN;
+    }
+
+    public static BioSubType getBioAttribute(String bioSubType) {
+        for(BioSubType subType : BioSubType.values())
+            if(subType.bioSubType.equals(bioSubType))
                 return subType;
         return BioSubType.UNKNOWN;
     }

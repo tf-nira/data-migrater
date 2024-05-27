@@ -2,7 +2,9 @@ package io.mosip.packet.core.util;
 
 import com.google.gson.Gson;
 import io.mosip.kernel.core.logger.spi.Logger;
+import io.mosip.packet.core.config.login.LoginConfig;
 import io.mosip.packet.core.constant.LoggerFileConstant;
+import io.mosip.packet.core.constant.LoginType;
 import io.mosip.packet.core.dto.PasswordRequest;
 import io.mosip.packet.core.dto.request.ClientSecretKeyRequest;
 import io.mosip.packet.core.dto.request.Metadata;
@@ -43,6 +45,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Map;
 
 import static io.mosip.packet.core.constant.GlobalConfig.IS_NETWORK_AVAILABLE;
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID;
@@ -82,12 +85,12 @@ public class RestApiClient {
 		RestApiClient.isAuthRequired = isAuthRequired;
 	}
 
-	private static Boolean isUserLoginRequired = true;
+	private LoginType loginType;
 
-	public static void setIsUserLoginRequired(Boolean isUserLoginRequired) {
-		RestApiClient.isUserLoginRequired = isUserLoginRequired;
-		System.setProperty("token", "");
-	}
+	private LoginType currentLoginType;
+
+	@Autowired
+	private LoginConfig loginConfig;
 
 	@PostConstruct
 	private void loadRestTemplate() throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException {
@@ -105,7 +108,8 @@ public class RestApiClient {
 	 * @throws Exception
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T getApi(URI uri, Class<?> responseType) throws Exception {
+	public <T> T getApi(URI uri, Class<?> responseType, LoginType loginType) throws Exception {
+		this.loginType = loginType;
 		T result = null;
 		try {
 			result = (T) localRestTemplate.exchange(uri, HttpMethod.GET, setRequestHeader(null, null), responseType)
@@ -132,8 +136,8 @@ public class RestApiClient {
 	 * @return the t
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T postApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass) throws Exception {
-
+	public <T> T postApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass, LoginType loginType) throws Exception {
+		this.loginType = loginType;
 		T result = null;
 		try {
 			logger.info(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
@@ -163,9 +167,9 @@ public class RestApiClient {
 	 * @return the t
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T patchApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass)
+	public <T> T patchApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass, LoginType loginType)
 			throws Exception {
-
+		this.loginType = loginType;
 		RestTemplate restTemplate;
 		T result = null;
 		try {
@@ -183,8 +187,8 @@ public class RestApiClient {
 		return result;
 	}
 
-	public <T> T patchApi(String uri, Object requestType, Class<?> responseClass) throws Exception {
-		return patchApi(uri, null, requestType, responseClass);
+	public <T> T patchApi(String uri, Object requestType, Class<?> responseClass, LoginType loginType) throws Exception {
+		return patchApi(uri, null, requestType, responseClass, loginType);
 	}
 
 	/**
@@ -204,8 +208,8 @@ public class RestApiClient {
 	 *             the exception
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T putApi(String uri, Object requestType, Class<?> responseClass, MediaType mediaType) throws Exception {
-
+	public <T> T putApi(String uri, Object requestType, Class<?> responseClass, MediaType mediaType, LoginType loginType) throws Exception {
+		this.loginType = loginType;
 		T result = null;
 		ResponseEntity<T> response = null;
 		try {
@@ -257,7 +261,7 @@ public class RestApiClient {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	private HttpEntity<Object> setRequestHeader(Object requestType, MediaType mediaType) throws IOException, ParseException {
+	private HttpEntity<Object> setRequestHeader(Object requestType, MediaType mediaType) throws Exception {
 		MultiValueMap<String, String> headers = new LinkedMultiValueMap<String, String>();
 		if(IS_NETWORK_AVAILABLE && isAuthRequired)
 			headers.add("Cookie", getToken());
@@ -288,18 +292,16 @@ public class RestApiClient {
 	 * @return
 	 * @throws IOException
 	 */
-	public String getToken() throws IOException, ParseException {
+	public String getToken() throws Exception {
 		String token = System.getProperty("token");
 		boolean isValid = false;
 
 		if(isAuthRequired) {
-			if (StringUtils.isNotEmpty(token)) {
-
+			if (StringUtils.isNotEmpty(token) && currentLoginType.equals(loginType)) {
 				isValid = TokenHandlerUtil.isValidBearerToken(token, environment.getProperty("token.request.issuerUrl"),
-						environment.getProperty("token.request.clientId"));
-
-
+						getIssuer(loginType));
 			}
+
 			if (!isValid) {
 				TokenRequestDTO<Object> tokenRequestDTO = new TokenRequestDTO<Object>();
 				tokenRequestDTO.setId(environment.getProperty("token.request.id"));
@@ -307,7 +309,7 @@ public class RestApiClient {
 
 				tokenRequestDTO.setRequesttime(DateUtils.getUTCCurrentDateTimeString());
 				// tokenRequestDTO.setRequest(setPasswordRequestDTO());
-				tokenRequestDTO.setRequest(setSecretKeyRequestDTO());
+				tokenRequestDTO.setRequest(setSecretKeyRequestDTO(loginType));
 				tokenRequestDTO.setVersion(environment.getProperty("token.request.version"));
 
 				Gson gson = new Gson();
@@ -315,7 +317,7 @@ public class RestApiClient {
 				// HttpPost post = new
 				// HttpPost(environment.getProperty("PASSWORDBASEDTOKENAPI"));
 				HttpPost post = null;
-				if(isUserLoginRequired)
+				if(loginType.equals(LoginType.USER))
 					post = new HttpPost(environment.getProperty("USERBASEDTOKENAPI"));
 				else
 					post = new HttpPost(environment.getProperty("KEYBASEDTOKENAPI"));
@@ -327,19 +329,21 @@ public class RestApiClient {
 					HttpResponse response = httpClient.execute(post);
 					org.apache.http.HttpEntity entity = response.getEntity();
 					String responseBody = EntityUtils.toString(entity, "UTF-8");
-					if(!isUserLoginRequired) {
+					if(!loginType.equals(LoginType.USER)) {
 						Header[] cookie = response.getHeaders("Set-Cookie");
 						if (cookie.length == 0)
 							throw new TokenGenerationFailedException();
 						token = response.getHeaders("Set-Cookie")[0].getValue();
 						System.setProperty("token", token.substring(14, token.indexOf(';')));
+						currentLoginType = loginType;
 						return token.substring(0, token.indexOf(';'));
 					} else {
 						JSONParser jsonParser = new JSONParser();
 						JSONObject responseJsonObject = (JSONObject) jsonParser.parse(responseBody);
 						JSONObject tokenJsonObject = (JSONObject) responseJsonObject.get("response");
-						token = "Authorization=" + tokenJsonObject.get("token").toString();
+						token = tokenJsonObject.get("token").toString();
 						System.setProperty("token", token);
+						currentLoginType = loginType;
 						return token;
 					}
 				} catch (IOException | ParseException e) {
@@ -354,22 +358,60 @@ public class RestApiClient {
 		}
 	}
 
-	private Object setSecretKeyRequestDTO() {
-		if(!isUserLoginRequired) {
+	private String getIssuer(LoginType loginType) throws Exception {
+		Map<String, String> credential = loginConfig.getCredentials().get(loginType.getLoginCode());
+		if(credential.containsKey("clientId"))
+			return credential.get("clientId");
+		else if(credential.containsKey("username"))
+			return credential.get("username");
+		else {
+			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
+					APPLICATION_ID, "Client Id or User Name (clientId / username) not configured for the login type " + loginType.getLoginCode());
+			throw new Exception("Client Id or User Name (clientId / username) not configured for the login type " + loginType.getLoginCode());
+		}
+	}
+
+	private Object setSecretKeyRequestDTO(LoginType loginType) throws Exception {
+		if(!loginType.equals(LoginType.USER)) {
 			SecretKeyRequest request = new SecretKeyRequest();
-			request.setAppId(environment.getProperty("token.request.appid"));
-			request.setClientId(environment.getProperty("token.request.clientId"));
-			request.setSecretKey(environment.getProperty("token.request.secretKey"));
+			request.setAppId(getIssuerAppId(loginType));
+			request.setClientId(getIssuer(loginType));
+			request.setSecretKey(getIssuerPassword(loginType));
 			return request;
 		} else {
 			ClientSecretKeyRequest request = new ClientSecretKeyRequest();
-			request.setAppId(environment.getProperty("token.request.appid"));
-			request.setClientId(environment.getProperty("token.request.clientId"));
-			request.setClientSecret(environment.getProperty("token.request.secretKey"));
-			request.setUserName(environment.getProperty("token.request.username"));
-			request.setPassword(environment.getProperty("token.request.password"));
+			request.setAppId(getIssuerAppId(LoginType.REGISTRATION));
+			request.setClientId(getIssuer(LoginType.REGISTRATION));
+			request.setClientSecret(getIssuerPassword(LoginType.REGISTRATION));
+			request.setUserName(getIssuer(loginType));
+			request.setPassword(getIssuerPassword(loginType));
 			return request;
 		}
+	}
+
+	private String getIssuerPassword(LoginType loginType) throws Exception {
+		Map<String, String> credential = loginConfig.getCredentials().get(loginType.getLoginCode());
+		if(credential.containsKey("secretKey"))
+			return credential.get("secretKey");
+		else if(credential.containsKey("password"))
+			return credential.get("password");
+		else {
+			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
+					APPLICATION_ID, "Secret Key or Password (secretKey / password) not configured for the login type " + loginType.getLoginCode());
+			throw new Exception("Secret Key or Password (secretKey / password) not configured for the login type " + loginType.getLoginCode());
+		}
+	}
+
+	private String getIssuerAppId(LoginType loginType) throws Exception {
+		Map<String, String> credential = loginConfig.getCredentials().get(loginType.getLoginCode());
+		if(credential.containsKey("appid"))
+			return credential.get("appid");
+		else {
+			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
+					APPLICATION_ID, "App Id (appid) not configured for the login type " + loginType.getLoginCode());
+			throw new Exception("App Id (appid) not configured for the login type " + loginType.getLoginCode());
+		}
+
 	}
 
 	private PasswordRequest setPasswordRequestDTO() {

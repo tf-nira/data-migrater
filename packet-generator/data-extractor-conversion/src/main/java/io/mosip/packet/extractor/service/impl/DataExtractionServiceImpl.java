@@ -1,18 +1,21 @@
 package io.mosip.packet.extractor.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import io.mosip.commons.packet.dto.PacketInfo;
 import io.mosip.commons.packet.dto.packet.PacketDto;
+import io.mosip.kernel.biometrics.entities.BIR;
 import io.mosip.kernel.clientcrypto.service.impl.ClientCryptoFacade;
 import io.mosip.kernel.core.logger.spi.Logger;
-import io.mosip.packet.core.constant.FieldCategory;
-import io.mosip.packet.core.constant.GlobalConfig;
-import io.mosip.packet.core.constant.ValidatorEnum;
+import io.mosip.packet.core.constant.*;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
+import io.mosip.packet.core.dto.RequestWrapper;
+import io.mosip.packet.core.dto.ResponseWrapper;
+import io.mosip.packet.core.dto.biosdk.BioSDKRequestWrapper;
 import io.mosip.packet.core.dto.dbimport.*;
-import io.mosip.packet.core.dto.masterdata.DocumentCategoryDto;
-import io.mosip.packet.core.dto.masterdata.DocumentTypeExtnDto;
+import io.mosip.packet.core.dto.packet.PacketRequest;
+import io.mosip.packet.core.dto.packet.RegistrationIdRequest;
 import io.mosip.packet.core.dto.tracker.TrackerRequestDto;
 import io.mosip.packet.core.dto.upload.PacketUploadDTO;
 import io.mosip.packet.core.dto.upload.PacketUploadResponseDTO;
@@ -20,13 +23,11 @@ import io.mosip.packet.core.entity.PacketTracker;
 import io.mosip.packet.core.exception.ExceptionUtils;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.repository.PacketTrackerRepository;
-import io.mosip.packet.core.service.CustomNativeRepository;
+import io.mosip.packet.core.service.DataRestClientService;
 import io.mosip.packet.core.service.thread.*;
+import io.mosip.packet.core.spi.BioConvertorApiFactory;
 import io.mosip.packet.core.spi.QualityWriterFactory;
-import io.mosip.packet.core.util.CommonUtil;
-import io.mosip.packet.core.util.DataBaseUtil;
-import io.mosip.packet.core.util.FixedListQueue;
-import io.mosip.packet.core.util.TrackerUtil;
+import io.mosip.packet.core.util.*;
 import io.mosip.packet.extractor.service.DataExtractionService;
 import io.mosip.packet.extractor.util.ConfigUtil;
 import io.mosip.packet.extractor.util.PacketCreator;
@@ -41,6 +42,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -51,6 +53,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static io.mosip.packet.core.constant.GlobalConfig.SESSION_KEY;
 import static io.mosip.packet.core.constant.GlobalConfig.*;
@@ -133,10 +136,19 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     @Autowired
     private ClientCryptoFacade clientCryptoFacade;
 
+    @Autowired
+    private DataRestClientService dataRestClientService;
+
     private boolean uploadProcessStarted = false;
 
     private Map<String, HashMap<String, String>> fieldsCategoryMap = new HashMap<>();
     private ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired
+    private BioConvertorApiFactory bioConvertorApiFactory;
+
+    @Autowired
+    private BioSDKUtil bioSDKUtil;
 
     @Override
     public HashMap<String, Object> extractBioDataFromDBAsBytes(DBImportRequest dbImportRequest, Boolean localStoreRequired) throws Exception {
@@ -385,6 +397,98 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public String refreshQualityAnalysisData() throws Exception {
         qualityWriterFactory.preDestroyProcess();
         return "Quality Analysis Data Refresh Successfully";
+    }
+
+    @Override
+    public String extractBioDataFromPacket(RegistrationIdRequest registrationIdRequest) throws Exception {
+        List<String> ridList = registrationIdRequest.getRids();
+        HashMap<String, String> csvMap = qualityWriterFactory.getDataMap();
+
+        if(ridList == null || ridList.isEmpty())
+            throw new Exception("No RID Provided in the Request.");
+
+        for(String rid : ridList) {
+            HashMap<String, List<HashMap<String, Object>>> capturedBiometrics = new HashMap<>();
+
+            PacketRequest packetRequest = new PacketRequest();
+            packetRequest.setBypassCache(true);
+            packetRequest.setId(rid);
+            packetRequest.setProcess("NEW");
+            packetRequest.setSource("REGISTRATION_CLIENT");
+            packetRequest.setPerson("individualBiometrics");
+
+            List<String> modalityList = new ArrayList<>();
+            modalityList.add("Iris");
+            modalityList.add("Finger");
+            modalityList.add("Face");
+            packetRequest.setModalities(modalityList);
+
+            RequestWrapper<PacketRequest> requestWrapper = new RequestWrapper<>();
+            requestWrapper.setRequest(packetRequest);
+            requestWrapper.setVersion("1.0");
+            requestWrapper.setRequesttime(DateUtils.getUTCCurrentDateTimeString());
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Fetching Biometrics from Packet Manager for RID " + rid);
+            ResponseWrapper<HashMap<String, List<HashMap<String, Object>>>> responseWrapper = (ResponseWrapper) dataRestClientService.postApi(ApiName.PACKET_BIOMETRIC_READER, null, null, requestWrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON);
+            capturedBiometrics = responseWrapper.getResponse();
+            List<HashMap<String, Object>> birList = capturedBiometrics.get("segments");
+
+            for(HashMap<String, Object> birObject : birList) {
+                birObject.remove("birs");
+                ((HashMap)birObject.get("bdbInfo")).remove("creationDate");
+                ObjectMapper mapper = new ObjectMapper();
+                String jsonString = mapper.writeValueAsString(birObject);
+                BIR bir = mapper.readValue(jsonString,
+                        new TypeReference<BIR>() {
+                        });
+
+                String subType = bir.getBdbInfo().getSubtype().stream().map(String::valueOf).collect(Collectors.joining(" "));
+                String type = bir.getBdbInfo().getType().stream().map(String::valueOf).collect(Collectors.joining(" "));
+                String key = type + (subType != null && !subType.isEmpty() ? "-" + subType : "");
+                LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Processing BIR Type " + type + " And Sub Type " + subType + " for RID " + rid);
+
+                if(bir.getBdb() != null && bir.getBdb().length > 0) {
+                    FieldFormatRequest fieldFormatRequest = new FieldFormatRequest();
+                    fieldFormatRequest.setFieldName(key.replace(" ", ""));
+                    fieldFormatRequest.setSrcFormat(DataFormat.ISO);
+                    fieldFormatRequest.getDestFormat().add(DataFormat.JPEG);
+                    byte[] convertedImage = convertBiometric(rid, fieldFormatRequest, bir.getBdb(), true, BioSubType.getBioAttribute(subType).getBioAttribute());
+                    bir.setBdb(convertedImage);
+                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Image Convertion Completed for BIR Type " + type + " And Sub Type " + subType + " for RID " + rid);
+
+                    BioSDKRequestWrapper bioSDKrequestWrapper = new BioSDKRequestWrapper();
+                    bioSDKrequestWrapper.setSegments(new ArrayList<>());
+                    bioSDKrequestWrapper.getSegments().add(bir);
+                    bioSDKrequestWrapper.setBiometricType(bir.getBdbInfo().getType().get(0).value());
+                    bioSDKrequestWrapper.setFormat(DataFormat.JPEG.getFileFormat());
+                    bioSDKrequestWrapper.setInputObject(csvMap);
+                    bioSDKrequestWrapper.setIsOnlyForQualityCheck(IS_ONLY_FOR_QUALITY_CHECK);
+                    Long startTime = System.nanoTime();
+
+                    try {
+                        Double score = Double.parseDouble(bioSDKUtil.calculateQualityScore(bioSDKrequestWrapper, key, rid, startTime));
+                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Quality Score is " + score + " for BIR Type " + type + " And Sub Type " + subType + " for RID " + rid);
+                    } catch (Exception e) {
+                        LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Exception for RID : " + rid +  " for BIR Type " + type + " And Sub Type " + subType + " Exception : " +  e.getMessage() + ExceptionUtils.getStackTrace(e));
+                    }
+                } else {
+                    csvMap.put(key, "");
+                }
+            }
+
+            csvMap.put("reg_no", rid);
+            csvMap.put("ref_id", rid);
+            qualityWriterFactory.writeQualityData(csvMap);
+        }
+        return null;
+    }
+
+    public byte[] convertBiometric(String fileNamePrefix, FieldFormatRequest fieldFormatRequest, byte[] bioValue, Boolean localStoreRequired, String fieldName) throws Exception {
+        if (localStoreRequired) {
+            bioConvertorApiFactory.writeFile(fileNamePrefix + "-" + fieldFormatRequest.getFieldList().get(0).getFieldName() , bioValue, fieldFormatRequest.getSrcFormat());
+            return bioConvertorApiFactory.writeFile(fileNamePrefix + "-" + fieldFormatRequest.getFieldList().get(0).getFieldName(), bioConvertorApiFactory.convertImage(fieldFormatRequest, bioValue, fieldName), fieldFormatRequest.getDestFormat().get(fieldFormatRequest.getDestFormat().size()-1));
+        } else {
+            return bioConvertorApiFactory.convertImage(fieldFormatRequest, bioValue, fieldName);
+        }
     }
 
     private boolean processPacket(DBImportRequest dbImportRequest, PacketCreatorResponse packetCreatorResponse, ThreadDataProcessController threadDataProcessController, Map<FieldCategory, HashMap<String, Object>> dataHashMap) throws Exception {

@@ -34,7 +34,7 @@ public class BioSdkImpl implements BioSdkApiFactory {
         QualityCheckRequest request = new QualityCheckRequest();
         request.setSample(segment);
         request.setModalitiesToCheck(new ArrayList<>());
-        request.getModalitiesToCheck().add(bioSDKRequestWrapper.getBiometricType());
+        request.getModalitiesToCheck().add(bioSDKRequestWrapper.getBiometricType().toUpperCase());
 
         String requestText = (new Gson()).toJson(request);
         String encodedRequest = Base64.getEncoder().encodeToString(requestText.getBytes(StandardCharsets.UTF_8));
@@ -53,7 +53,7 @@ public class BioSdkImpl implements BioSdkApiFactory {
         if(bioSDKResponse.get("statusCode").equals(200)) {
             HashMap<String, Object> resp = (HashMap<String, Object>) bioSDKResponse.get("response");
             HashMap<String, Object> scoreMap = (HashMap<String, Object>) resp.get("scores");
-            HashMap<String, Object> modalityMap = (HashMap<String, Object>) scoreMap.get(bioSDKRequestWrapper.getBiometricType());
+            HashMap<String, Object> modalityMap = (HashMap<String, Object>) scoreMap.get(bioSDKRequestWrapper.getBiometricType().toUpperCase());
             return (Double) modalityMap.get("score");
         } else {
             LOGGER.error("Error While Calling BIOSDK for Quality Check for Modality " + (new Gson()).toJson(response));

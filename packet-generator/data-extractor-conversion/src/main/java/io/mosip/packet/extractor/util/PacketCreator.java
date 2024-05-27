@@ -35,6 +35,7 @@ import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.repository.BlocklistedWordsRepository;
 import io.mosip.packet.core.service.DataRestClientService;
 import io.mosip.packet.core.spi.BioSdkApiFactory;
+import io.mosip.packet.core.util.BioSDKUtil;
 import io.mosip.packet.core.util.CommonUtil;
 import io.mosip.packet.core.util.mockmds.StringHelper;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
@@ -122,6 +123,9 @@ public class PacketCreator {
 
     @Value("${mosip.packet.creater.source}")
     private String source;
+
+    @Autowired
+    private BioSDKUtil bioSDKUtil;
 
     @PostConstruct
     private void initializeEVariables() {
@@ -323,38 +327,10 @@ public class PacketCreator {
                                         requestWrapper.setFormat(bioData.getFormat().toString());
                                         requestWrapper.setInputObject(csvMap);
                                         requestWrapper.setIsOnlyForQualityCheck(IS_ONLY_FOR_QUALITY_CHECK);
-                                        String biosdkVendor = null;
 
                                         try {
-                                            if(IS_ONLY_FOR_QUALITY_CHECK) {
-                                                Map<String, BioSdkApiFactory> bioSdkMap = bioSDKConfig.getBioSDKList().get(biometricType);
-                                                LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Fetch BIOSDK List from Configuration " + trackerColumn + " - " + entry.getKey() + " " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-
-                                                for(Map.Entry<String, BioSdkApiFactory> bioSdkEntry : bioSdkMap.entrySet()) {
-                                                    biosdkVendor = bioSdkEntry.getKey();
-                                                    requestWrapper.setBiometricField(entry.getKey() + "_" + biosdkVendor);
-
-                                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Before Calling BIOSDK Call" + trackerColumn + " - " + entry.getKey() + " " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-
-                                                    Double score = bioSdkEntry.getValue().calculateBioQuality(requestWrapper);
-                                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "After Calling BIOSDK Call" + trackerColumn + " - " + entry.getKey() + " " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-
-                                                    String currentVal = csvMap.get(entry.getKey());
-                                                    if(bioSDKConfig.getBioSDKList().get(biometricType).size() > 1) {
-                                                        if(currentVal == null)
-                                                            currentVal = biosdkVendor + "(" + score.toString() + ")";
-                                                        else
-                                                            currentVal+= "," + biosdkVendor + "(" + score.toString() + ")";
-                                                    } else {
-                                                        currentVal = score.toString();
-                                                    }
-                                                    csvMap.put(entry.getKey(),  currentVal.toString());
-                                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "After Update the Score into CSVMAP" + trackerColumn + " - " + entry.getKey() + " " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-                                                }
-                                            } else {
-                                                requestWrapper.setBiometricField(entry.getKey());
-                                                Double score = bioSDKConfig.getDefaultBioSDK().get(biometricType).calculateBioQuality(requestWrapper);
-
+                                            Double score = Double.parseDouble(bioSDKUtil.calculateQualityScore(requestWrapper, entry.getKey(), trackerColumn, startTime));
+                                            if(!IS_ONLY_FOR_QUALITY_CHECK) {
                                                 int[] qualityArray = qualityRangeMap.get("POOR");
                                                 if(poorBirCreation && score >= qualityArray[0] && score <= qualityArray[1]) {
                                                     if(!restrictTypes.contains(biometricType.value().toUpperCase())) {
@@ -375,8 +351,6 @@ public class PacketCreator {
                                                         throw new ValidationFailedException(PlatformErrorMessages.MGR_PKT_CRT_IGNORE_EXCEPTION.getCode(), String.format(PlatformErrorMessages.MGR_PKT_CRT_IGNORE_EXCEPTION.getMessage(), biometricType.value().toUpperCase()));
                                                 } else
                                                     bir.getBdbInfo().getQuality().setScore(score.longValue());
-
-                                                csvMap.put(entry.getKey(), score.toString());
                                             }
 
                                             timeDifference = System.nanoTime()-startTime;
@@ -388,7 +362,6 @@ public class PacketCreator {
                                             System.out.println("Entering Exception");
                                             e.printStackTrace();
                                             bir.getBdbInfo().getQuality().setScore(null);
-                                            csvMap.put(entry.getKey() + "_" + biosdkVendor, e.getMessage());
                                 //            throw new Exception(trackerColumn + " Error : " + biometricType.toString() + ", " + bioAttribute + " Error Message :" + e.getLocalizedMessage());
                                         }
                                     } else {

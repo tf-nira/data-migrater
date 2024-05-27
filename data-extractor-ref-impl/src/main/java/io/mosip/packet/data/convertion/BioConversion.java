@@ -75,7 +75,8 @@ public class BioConversion implements BioConvertorApiFactory {
                         break;
                 }
 
-                String bioAttribute = fieldName.split("_")[1];
+                String[] values = fieldName.split("_");
+                String bioAttribute = values.length > 1 ? values[1] : values[0];
                 BiometricType biometricType = Biometric.getSingleTypeByAttribute(bioAttribute);
                 String bioSubType = BioSubType.getBioSubType(bioAttribute).getBioSubType();
 

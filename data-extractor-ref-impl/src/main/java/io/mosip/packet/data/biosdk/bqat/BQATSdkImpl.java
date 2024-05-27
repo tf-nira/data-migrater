@@ -62,8 +62,8 @@ public class BQATSdkImpl implements BioSdkApiFactory {
         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Entering BIOSDK for Quality Calculation" + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
 
         BQATRequest request = new BQATRequest();
-        request.setModality(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType()).getModality());
-        request.setType(BQATFileType.valueOf(bioSDKRequestWrapper.getFormat()).getType());
+        request.setModality(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType().toUpperCase()).getModality());
+        request.setType(BQATFileType.valueOf(bioSDKRequestWrapper.getFormat().toUpperCase()).getType());
         request.setData(Base64.getEncoder().encodeToString(((BIR)bioSDKRequestWrapper.getSegments().get(0)).getBdb()));
         request.setId(UUID.randomUUID().toString());
         request.setTimestamp(LocalDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")));
@@ -72,7 +72,7 @@ public class BQATSdkImpl implements BioSdkApiFactory {
         portRange.addLast(queryParameterValue);
         String url = env.getProperty(ApiName.BQAT_BIOSDK_QUALITY_CHECK.toString());
         url = url.replace("{PORT_NO}", queryParameterValue);
-        BQATResponse response= (BQATResponse) restApiClient.postApi(url, null, null, request, BQATResponse.class, false);
+        BQATResponse response= (BQATResponse) restApiClient.postApi(url, null, null, request, BQATResponse.class, false, ApiName.BQAT_BIOSDK_QUALITY_CHECK);
         HashMap<String, Object> bioSDKResponse = (HashMap<String, Object>) response.getResults();
         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Rest Call Executed Successfully " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to call BIOSDK is " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
@@ -80,16 +80,16 @@ public class BQATSdkImpl implements BioSdkApiFactory {
         if(bioSDKResponse != null) {
             try {
                 if(bioSDKRequestWrapper.getIsOnlyForQualityCheck()) {
-                    if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType()).equals(BQATModalityType.FACE))
+                    if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType().toUpperCase()).equals(BQATModalityType.FACE))
                         return Double.valueOf(bioSDKResponse.get("quality").toString());
-                    else if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType()).equals(BQATModalityType.IRIS))
+                    else if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType().toUpperCase()).equals(BQATModalityType.IRIS))
                         return Double.valueOf(bioSDKResponse.get("quality").toString());
                     else
                         return Double.valueOf(bioSDKResponse.get("NFIQ2").toString());
                 } else {
-                    if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType()).equals(BQATModalityType.FACE))
+                    if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType().toUpperCase()).equals(BQATModalityType.FACE))
                         return Double.valueOf(bioSDKResponse.get("quality").toString());
-                    else if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType()).equals(BQATModalityType.IRIS))
+                    else if(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType().toUpperCase()).equals(BQATModalityType.IRIS))
                         return Double.valueOf(bioSDKResponse.get("quality").toString());
                     else
                         return Double.valueOf(bioSDKResponse.get("NFIQ2").toString());

@@ -25,7 +25,7 @@
         <dependency>
             <groupId>io.mosip.biometric.util</groupId>
             <artifactId>biometrics-util</artifactId>
-            <version>1.2.0.2</version>
+            <version>1.2.0.1-B1</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/io.mosip.kernel/kernel-cbeffutil-api -->
         <dependency>
