@@ -103,10 +103,10 @@ public class DataBaseUtil {
 
         try {
             if(conn != null) {
+                IS_DATABASE_READ_OPERATION = true;
                 initializeDocumentMap(dbImportRequest);
                 oneTimeCheckForZeroOffset = true;
                 threadPool = new CustomizedThreadPoolExecutor(dbReaderMaxThreadPoolCount, dbReaderMaxRecordsCountPerThreadPool, dbReaderMaxThreadExecCount, "DATABASE READER", true);
-                IS_DATABASE_READ_OPERATION = true;
 
                 Timer dataReader = new Timer("DataBase Reader");
                 dataReader.schedule(new TimerTask() {
@@ -129,16 +129,17 @@ public class DataBaseUtil {
                                 statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                                 scrollableResultSet = statement1.executeQuery();
 
-                                if (scrollableResultSet.getRow() <= 0) {
-                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Cancelling Database Reader since No Data" + scrollableResultSet.getFetchSize());
-                                    dataReader.cancel();
-                                    IS_DATABASE_READ_OPERATION = false;
-                                }
-
                                 if(scrollableResultSet.last()) {
                                     TOTAL_RECORDS_FOR_PROCESS += Long.valueOf(scrollableResultSet.getRow());
                                     OFFSET_VALUE += Long.valueOf(scrollableResultSet.getRow());
                                     trackerUtil.updateDatabaseOffset(OFFSET_VALUE);
+                                }
+
+                                if (scrollableResultSet.getRow() <= 0) {
+                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Cancelling Database Reader since No Data" + scrollableResultSet.getFetchSize());
+                                    dataReader.cancel();
+                                    threadPool.setInputProcessCompleted(true);
+                                    IS_DATABASE_READ_OPERATION = false;
                                 }
 
                                 scrollableResultSet.beforeFirst();
@@ -207,8 +208,6 @@ public class DataBaseUtil {
                         }
                     }
                 }, 0,  70000L);
-
-                threadPool.setInputProcessCompleted(true);
             } else
                 throw new SQLException("Unable to Connect With Database. Please check the Configuration");
         } catch(Exception e) {

@@ -344,7 +344,7 @@ public class RestApiClient {
 						token = tokenJsonObject.get("token").toString();
 						System.setProperty("token", token);
 						currentLoginType = loginType;
-						return token;
+						return AUTHORIZATION + token;
 					}
 				} catch (IOException | ParseException e) {
 					logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,

@@ -131,6 +131,6 @@ public class FilterAddPopupController implements Initializable {
 
     @FXML
     public void saveColumn(ActionEvent event) {
-        System.out.println("Save Column Methos Entering");
+        System.out.println("Save Column Method Entering");
     }
 }

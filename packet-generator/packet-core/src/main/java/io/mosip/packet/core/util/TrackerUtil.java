@@ -157,9 +157,11 @@ public class TrackerUtil {
                     preparedStatement = null;
                     batchSize = 1;
                     isConnCreation=true;
+                    LOGGER.info("TrackerUtil Closing Connection");
                     conn.close();
                     conn=null;
                     this.initialize();
+                    LOGGER.info("TrackerUtil Starting Connection");
                     isConnCreation=false;
                 }
 
@@ -364,7 +366,10 @@ public class TrackerUtil {
 
     }
 
-    public synchronized void addTrackerLocalEntry(String refId, String regNo, TrackerStatus status, String process, Object request, String sessionKey, String activity) throws SQLException, IOException {
+    public synchronized void addTrackerLocalEntry(String refId, String regNo, TrackerStatus status, String process, Object request, String sessionKey, String activity) throws SQLException, IOException, InterruptedException {
+        while(isConnCreation)
+            Thread.sleep(10000);
+
         Optional<PacketTracker> optional= packetTrackerRepository.findById(refId);
         PacketTracker packetTracker;
 

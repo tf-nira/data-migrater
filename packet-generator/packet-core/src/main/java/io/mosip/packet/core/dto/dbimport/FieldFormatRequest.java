@@ -28,11 +28,6 @@ public class FieldFormatRequest {
     private List<FieldName> fieldList;
     private String staticValue;
 
-    public FieldFormatRequest() {
-        destFormat = new ArrayList<>();
-        fieldList=new ArrayList<>();
-    }
-
     public List<FieldName> getFieldList() {
         if(fieldList != null && fieldList.size() > 0)
             return fieldList;

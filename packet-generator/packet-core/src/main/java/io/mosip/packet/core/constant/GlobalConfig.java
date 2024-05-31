@@ -35,10 +35,6 @@ public class GlobalConfig {
 
     public static Boolean IS_DATABASE_READ_OPERATION = false;
 
-    public static Boolean IS_PACKET_UPLOAD_OPERATION = false;
-
-    public static Boolean IS_PACKET_REPROCESS_OPERATION = false;
-
     public static Boolean IS_PACKET_CREATOR_OPERATION = false;
 
     public static Long NO_OF_PACKETS_UPLOADED = 0L;
@@ -79,8 +75,22 @@ public class GlobalConfig {
 
     public static boolean isTaskCompleted(String eventName) throws InterruptedException {
         boolean isCompleted = true;
+        Integer pendingTaskCount = 0;
+        Boolean isAllProcessCompleted = true;
 
-        if(!IS_DATABASE_READ_OPERATION && !IS_PACKET_UPLOAD_OPERATION && !IS_PACKET_REPROCESS_OPERATION && !IS_PACKET_CREATOR_OPERATION)
+        for(CustomizedThreadPoolExecutor executor : THREAD_POOL_EXECUTOR_LIST) {
+            for(ThreadPoolExecutor entry : executor.getPoolMap()) {
+                pendingTaskCount +=entry.getActiveCount();
+            }
+
+            if(!executor.getInputProcessCompleted())
+                isAllProcessCompleted = false;
+        }
+
+        if(pendingTaskCount > 0 || !isAllProcessCompleted)
+            return false;
+
+        if(!IS_DATABASE_READ_OPERATION && !IS_PACKET_CREATOR_OPERATION)
             for(CustomizedThreadPoolExecutor executor : THREAD_POOL_EXECUTOR_LIST) {
                 if(eventName == null || eventName.equals(executor.getNAME())) {
                     for(ThreadPoolExecutor entry : executor.getPoolMap()) {
@@ -116,7 +126,7 @@ public class GlobalConfig {
                 }
             }
 
-        if(IS_DATABASE_READ_OPERATION || IS_PACKET_UPLOAD_OPERATION || IS_PACKET_REPROCESS_OPERATION || IS_PACKET_CREATOR_OPERATION)
+        if(IS_DATABASE_READ_OPERATION || IS_PACKET_CREATOR_OPERATION)
             isCompleted = false;
 
         return isCompleted;

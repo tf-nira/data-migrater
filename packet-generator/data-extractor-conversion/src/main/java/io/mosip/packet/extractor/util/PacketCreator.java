@@ -356,10 +356,8 @@ public class PacketCreator {
                                             timeDifference = System.nanoTime()-startTime;
                                             LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "After Calculation of Quality from BIOSDK " + trackerColumn + " - " + entry.getKey() + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
                                         } catch (ValidationFailedException e) {
-                                            System.out.println("Entering Validation Exception");
                                             throw new Exception(trackerColumn + " Error : " + biometricType.toString() + ", " + bioAttribute + " Error Message :" + e.getLocalizedMessage());
                                         } catch (Exception e) {
-                                            System.out.println("Entering Exception");
                                             e.printStackTrace();
                                             bir.getBdbInfo().getQuality().setScore(null);
                                 //            throw new Exception(trackerColumn + " Error : " + biometricType.toString() + ", " + bioAttribute + " Error Message :" + e.getLocalizedMessage());

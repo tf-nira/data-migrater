@@ -299,7 +299,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
             Date startTime = new Date();
             if(enablePaccketUploader) {
-                IS_PACKET_UPLOAD_OPERATION = true;
                 NO_OF_PACKETS_UPLOADED = 0L;
                 CustomizedThreadPoolExecutor uploadExector = new CustomizedThreadPoolExecutor(uploadMaxThreadPoolCount, uploadMaxRecordsCountPerThreadPool,uploadMaxThreadExecCount, "PACKET UPLOADER", true);
                 Timer uploaderTimer = new Timer("Uploading Packet");
@@ -315,10 +314,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                 List<PacketTracker> trackerList =  packetTrackerRepository.findByStatusIn(statusList);
 
                                 if(trackerList.size() <= 0) {
-                                    IS_PACKET_UPLOAD_OPERATION = false;
                                     uploadExector.setInputProcessCompleted(true);
                                 } else {
-                                    IS_PACKET_UPLOAD_OPERATION = true;
                                     uploadExector.setInputProcessCompleted(false);
                                 }
 
@@ -326,6 +323,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                     ByteArrayInputStream bis = new ByteArrayInputStream(clientCryptoFacade.getClientSecurity().isTPMInstance() ? clientCryptoFacade.decrypt(Base64.getDecoder().decode(packetTracker.getRequest())) : Base64.getDecoder().decode(packetTracker.getRequest()));
                                     ObjectInputStream is = new ObjectInputStream(bis);
                                     PacketUploadDTO uploadDTO = (PacketUploadDTO) is.readObject();
+                                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Uploading Packet for " + (new Gson()).toJson(uploadDTO));
 
                                     ThreadUploadController controller = new ThreadUploadController();
                                     controller.setResult(uploadDTO);
@@ -351,9 +349,10 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                     });
                                     uploadExector.ExecuteTask(controller);
                                 }
-
-                                uploadProcessStarted = false;
                             }
+
+                            if(uploadExector.getCurrentPendingCount() <= 0)
+                                uploadProcessStarted = false;
                         } catch (Exception e) {
                             uploadProcessStarted = false;
                             e.printStackTrace();
@@ -365,18 +364,18 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
             if(!enableOnlyPacketUploader)
                 dataBaseUtil.readDataFromDatabase(dbImportRequest, null, fieldsCategoryMap, DataProcessor);
-            threadPool.setInputProcessCompleted(true);
-            IS_PACKET_CREATOR_OPERATION = false;
 
             do {
                 Thread.sleep(15000);
+
+                if(!IS_DATABASE_READ_OPERATION) {
+                    threadPool.setInputProcessCompleted(true);
+                    IS_PACKET_CREATOR_OPERATION = false;
+                }
             } while(!GlobalConfig.isThreadPoolCompleted());
 
             System.out.println("Start Time " + startTime);
             System.out.println("End Time Time " + new Date());
-
- //           if(threadPool.isTaskCompleted())
- //               processor.cancel();
         } catch (Exception e) {
           e.printStackTrace();
         } finally {
@@ -386,7 +385,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
             qualityWriterFactory.preDestroyProcess();
         }
-        System.out.println("Packet Uploaded List : " + (new Gson()).toJson(packetCreatorResponse));
         LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Uploaded List : " + (new Gson()).toJson(packetCreatorResponse));
         LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionServiceImpl :: createPacketFromDataBase():: exit");
 

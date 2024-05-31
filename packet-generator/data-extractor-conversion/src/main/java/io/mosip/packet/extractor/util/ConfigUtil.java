@@ -111,6 +111,11 @@ public class ConfigUtil {
                     RequestWrapper wrapper = prepareMachineSearchDto(machineName);
                     ResponseWrapper responseWrapper = (ResponseWrapper<PageDto>) restApiClient.postApi(ApiName.MASTER_MACHINE_SEARCH,null, null, wrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON);
 
+                    if(responseWrapper.getErrors() != null && responseWrapper.getErrors().size() > 0) {
+                        String message = getErrorMessage(getErrorList(responseWrapper));
+                        throw new Exception("Error During Machine Fetch " + message);
+                    }
+
                     if(responseWrapper.getResponse() != null) {
                         HashMap<String, Object> response = (HashMap<String, Object>) responseWrapper.getResponse();
                         machines = (List<HashMap<String, Object>>) response.get("data");
@@ -123,8 +128,6 @@ public class ConfigUtil {
                                     machineId = (String) map.get("id");
                                     String publicKey = (String) map.get("publicKey");
                                     configUtil.keyIndex = CryptoUtil.computeFingerPrint(CryptoUtil.decodeURLSafeBase64(publicKey),null);
-                                    System.out.println("KeyIndex from DB" + configUtil.keyIndex);
-                                    System.out.println("PublicKey from DB" + publicKey);
                                     break;
                                 }
                             }
@@ -178,8 +181,6 @@ public class ConfigUtil {
         FileInputStream io = new FileInputStream(publicKeyFile);
         final String publicKey = java.util.Base64.getEncoder().encodeToString(io.readAllBytes());
         configUtil.keyIndex = CryptoUtil.computeFingerPrint(java.util.Base64.getDecoder().decode(publicKey),null);
-        System.out.println("KeyIndex from System" + configUtil.keyIndex);
-        System.out.println("PublicKey from System" + publicKey);
 
         MosipMachineModel model = new MosipMachineModel();
         model.setLangCode(env.getProperty("mosip.selected.languages"));

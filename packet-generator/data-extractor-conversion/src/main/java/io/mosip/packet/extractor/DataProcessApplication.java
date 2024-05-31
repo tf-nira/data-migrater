@@ -85,9 +85,9 @@ public class DataProcessApplication {
                     String requestJson = new String(io.readAllBytes(), StandardCharsets.UTF_8);
                     ObjectMapper mapper = new ObjectMapper();
                     RequestWrapper<DBImportRequest> request = mapper.readValue(requestJson, new TypeReference<RequestWrapper<DBImportRequest>>() {});
-                    System.out.println("Request : " + (new Gson()).toJson(request));
+        //            System.out.println("Request : " + (new Gson()).toJson(request));
                     PacketCreatorResponse response =  context.getBean(DataExtractionService.class).createPacketFromDataBase(request.getRequest());
-                    System.out.println("Response : " + (new Gson()).toJson(response));
+        //            System.out.println("Response : " + (new Gson()).toJson(response));
                 }
 
   // TODO Temporary removing this Need uncomment
