@@ -3,6 +3,7 @@ package io.mosip.packet.extractor.util;
 import io.mosip.packet.core.constant.ValidatorEnum;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.extractor.validator.Validator;
+import io.mosip.packet.extractor.validator.impl.BiometricFormatValidator;
 import io.mosip.packet.extractor.validator.impl.FilterValidation;
 import io.mosip.packet.extractor.validator.impl.IdSchemaFieldValidator;
 import io.mosip.packet.extractor.validator.impl.OrderByValidator;
@@ -26,6 +27,9 @@ public class ValidationUtil {
     @Autowired
     private OrderByValidator orderByValidator;
 
+    @Autowired
+    private BiometricFormatValidator biometricFormatValidator;
+
     private HashMap<ValidatorEnum, Validator> validatorList = null;
 
     public HashMap<ValidatorEnum, Validator> getValidatorMap() {
@@ -34,6 +38,7 @@ public class ValidationUtil {
             validatorList.put(ValidatorEnum.ID_SCHEMA_VALIDATOR, idSchemaFieldValidator);
             validatorList.put(ValidatorEnum.FILTER_VALIDATOR, filterValidation);
             validatorList.put(ValidatorEnum.ORDERBY_VALIDATOR, orderByValidator);
+            validatorList.put(ValidatorEnum.BIOMETRIC_FORMAT_VALIDATOR, biometricFormatValidator);
         }
         return validatorList;
     }

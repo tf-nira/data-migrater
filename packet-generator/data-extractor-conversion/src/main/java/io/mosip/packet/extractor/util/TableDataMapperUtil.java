@@ -2,12 +2,14 @@ package io.mosip.packet.extractor.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.mosip.commons.packet.dto.Document;
+import io.mosip.packet.core.constant.BioSubType;
 import io.mosip.packet.core.constant.DataFormat;
 import io.mosip.packet.core.constant.FieldCategory;
 import io.mosip.packet.core.constant.mvel.ParameterType;
 import io.mosip.packet.core.dto.dbimport.DocumentAttributes;
 import io.mosip.packet.core.dto.dbimport.FieldFormatRequest;
 import io.mosip.packet.core.dto.dbimport.FieldName;
+import io.mosip.packet.core.dto.dbimport.IndividualBiometricFormat;
 import io.mosip.packet.core.dto.mvel.MvelParameter;
 import io.mosip.packet.core.dto.packet.BioData;
 import io.mosip.packet.core.service.CustomNativeRepository;
@@ -251,6 +253,16 @@ public class TableDataMapperUtil implements DataMapperUtil {
     }
 
     public byte[] convertBiometric(String fileNamePrefix, FieldFormatRequest fieldFormatRequest, byte[] bioValue, Boolean localStoreRequired, String fieldName) throws Exception {
+        String bioSubType = fieldName.split("_")[1];
+        DataFormat sourFormat= null;
+        HashMap<BioSubType, DataFormat> formatMap = new HashMap<>();
+
+        if(fieldFormatRequest.getIndividualBiometricFormat() != null && !fieldFormatRequest.getIndividualBiometricFormat().isEmpty()) {
+            for(IndividualBiometricFormat format : fieldFormatRequest.getIndividualBiometricFormat())
+                formatMap.put(format.getSubType(), format.getImageFormat());
+            fieldFormatRequest.setSrcFormat(formatMap.get(BioSubType.getBioSubType(bioSubType)));
+        }
+
         if (localStoreRequired) {
             bioConvertorApiFactory.writeFile(fileNamePrefix + "-" + fieldFormatRequest.getFieldList().get(0).getFieldName() , bioValue, fieldFormatRequest.getSrcFormat());
             return bioConvertorApiFactory.writeFile(fileNamePrefix + "-" + fieldFormatRequest.getFieldList().get(0).getFieldName(), bioConvertorApiFactory.convertImage(fieldFormatRequest, bioValue, fieldName), fieldFormatRequest.getDestFormat().get(fieldFormatRequest.getDestFormat().size()-1));

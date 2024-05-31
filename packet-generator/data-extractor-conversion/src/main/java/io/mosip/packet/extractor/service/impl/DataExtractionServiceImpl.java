@@ -219,6 +219,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             List<ValidatorEnum> enumList = new ArrayList<>();
             enumList.add(ValidatorEnum.ID_SCHEMA_VALIDATOR);
             enumList.add(ValidatorEnum.FILTER_VALIDATOR);
+            enumList.add(ValidatorEnum.BIOMETRIC_FORMAT_VALIDATOR);
             validationUtil.validateRequest(dbImportRequest, enumList);
             populateTableFields(dbImportRequest);
             dataBaseUtil.connectDatabase(dbImportRequest);
