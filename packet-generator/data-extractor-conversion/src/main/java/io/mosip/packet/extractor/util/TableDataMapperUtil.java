@@ -186,11 +186,17 @@ public class TableDataMapperUtil implements DataMapperUtil {
                         map = bioDocApiFactory.getBioData(byteVal, fieldMap);
                     }
 
+                    HashMap<BioSubType, DataFormat> formatMap = new HashMap<>();
+                    if(fieldFormatRequest.getIndividualBiometricFormat() != null && !fieldFormatRequest.getIndividualBiometricFormat().isEmpty()) {
+                        for(IndividualBiometricFormat format : fieldFormatRequest.getIndividualBiometricFormat())
+                            formatMap.put(format.getSubType(), format.getImageFormat());
+                    }
+
                     for(String field : fieldMap.split(",")) {
                         byte[] convertedImageData = null;
                         byte[] bytes = map.get(field);
                         if(bytes != null) {
-                            convertedImageData = convertBiometric(dataMap2.get(FieldCategory.DEMO).get(fieldFormatRequest.getPrimaryField()).toString(), fieldFormatRequest, bytes, localStoreRequired, field);
+                            convertedImageData = convertBiometric(dataMap2.get(FieldCategory.DEMO).get(fieldFormatRequest.getPrimaryField()).toString(), fieldFormatRequest, bytes, localStoreRequired, field, formatMap);
                         }
                         BioData bioData = new BioData();
                         bioData.setBioData(convertedImageData);
@@ -252,14 +258,11 @@ public class TableDataMapperUtil implements DataMapperUtil {
         return (byte[]) obj;
     }
 
-    public byte[] convertBiometric(String fileNamePrefix, FieldFormatRequest fieldFormatRequest, byte[] bioValue, Boolean localStoreRequired, String fieldName) throws Exception {
+    public byte[] convertBiometric(String fileNamePrefix, FieldFormatRequest fieldFormatRequest, byte[] bioValue, Boolean localStoreRequired, String fieldName, HashMap<BioSubType, DataFormat> formatMap) throws Exception {
         String bioSubType = fieldName.split("_")[1];
         DataFormat sourFormat= null;
-        HashMap<BioSubType, DataFormat> formatMap = new HashMap<>();
 
-        if(fieldFormatRequest.getIndividualBiometricFormat() != null && !fieldFormatRequest.getIndividualBiometricFormat().isEmpty()) {
-            for(IndividualBiometricFormat format : fieldFormatRequest.getIndividualBiometricFormat())
-                formatMap.put(format.getSubType(), format.getImageFormat());
+        if(formatMap != null && !formatMap.isEmpty()) {
             fieldFormatRequest.setSrcFormat(formatMap.get(BioSubType.getBioSubType(bioSubType)));
         }
 

@@ -5,6 +5,7 @@ public enum DataFormat {
     JP2("jpeg 2000", "jp2"),
     WSQ("wsq","wsq"),
     ISO("ISO", "iso"),
+    PNG("png","png"),
     YMD("yyyy/MM/dd", "yyyy/MM/dd"),
     DMY("dd/MM/yyyy", "dd/MM/yyyy"),
     DMY_WITH_HYPEN("dd-MM-yyyy", "dd-MM-yyyy"),

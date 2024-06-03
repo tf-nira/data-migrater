@@ -34,7 +34,7 @@ public class BioConversion implements BioConvertorApiFactory {
         for(DataFormat toFormat : destFormats) {
             if(currentFormat.equals(toFormat)) {
                currentFormat = toFormat;
-            } else if(currentFormat.equals(DataFormat.JPEG) && !toFormat.equals(DataFormat.JPEG)) {
+            } else if((currentFormat.equals(DataFormat.JPEG) || currentFormat.equals(DataFormat.PNG)) && (!toFormat.equals(DataFormat.JPEG) || !toFormat.equals(DataFormat.PNG))) {
                 ImageIO.write(ImageIO.read(new ByteArrayInputStream(byteData)), toFormat.getFormat(), baos);
                 byteData = baos.toByteArray();
                 currentFormat = toFormat;
