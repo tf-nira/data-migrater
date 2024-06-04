@@ -124,6 +124,8 @@ public class PacketCreator {
     @Value("${mosip.packet.creater.source}")
     private String source;
 
+    private String TOOL_NAME = "DATA_MIGRATOR";
+
     @Autowired
     private BioSDKUtil bioSDKUtil;
 
@@ -509,7 +511,7 @@ public class PacketCreator {
         metaData.put("langCodes", String.join(RegistrationConstants.COMMA, ConfigUtil.getConfigUtil().getSelectedLanguages()));
         metaData.put(PacketManagerConstants.META_APPLICANT_CONSENT, null);
 
-        metaInfoMap.put("packetSource", source);
+        metaInfoMap.put("packetSource", TOOL_NAME);
         metaInfoMap.put("metaData", mapper.writeValueAsString(getLabelValueDTOListString(metaData)));
         metaInfoMap.put("blockListedWords", mapper.writeValueAsString(  blocklistedWordsRepository.findAllActiveBlockListedWords()));
         metaInfoMap.put("capturedNonRegisteredDevices", mapper.writeValueAsString(new ArrayList<>()));

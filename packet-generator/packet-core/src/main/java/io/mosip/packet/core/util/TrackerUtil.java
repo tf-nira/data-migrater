@@ -40,7 +40,11 @@ public class TrackerUtil {
     @Value("${mosip.packet.creator.tracking.batch.size:1}")
     private int batchLimit;
 
+    @Value("${mosip.packet.creator.tracking.batch.connection.reset.count:100}")
+    private int batchConResetCount;
+
     private int batchSize = 0;
+    private int connSize = 0;
     private static String connectionHost = null;
     private boolean isConnCreation = false;
 
@@ -149,6 +153,7 @@ public class TrackerUtil {
         if(IS_TRACKER_REQUIRED) {
             try {
                 batchSize++;
+                connSize++;
 
                 if(batchSize > batchLimit) {
                     preparedStatement.executeBatch();
@@ -156,13 +161,16 @@ public class TrackerUtil {
                     preparedStatement.closeOnCompletion();
                     preparedStatement = null;
                     batchSize = 1;
-                    isConnCreation=true;
-                    LOGGER.info("TrackerUtil Closing Connection");
-                    conn.close();
-                    conn=null;
-                    this.initialize();
-                    LOGGER.info("TrackerUtil Starting Connection");
-                    isConnCreation=false;
+                    if(connSize > batchConResetCount) {
+                        isConnCreation=true;
+                        LOGGER.info("TrackerUtil Closing Connection");
+                        conn.close();
+                        conn=null;
+                        this.initialize();
+                        LOGGER.info("TrackerUtil Starting Connection");
+                        isConnCreation=false;
+                        connSize=1;
+                    }
                 }
 
                 if(preparedStatement == null)
@@ -184,6 +192,7 @@ public class TrackerUtil {
                 if(throwables.getMessage().contains("ORA-01000")) {
                     try {
                         batchSize = 0;
+                        connSize = 0;
                         conn.close();
                         conn=null;
                     } catch (SQLException e) {
@@ -284,6 +293,7 @@ public class TrackerUtil {
             } catch (SQLException throwables) {
                 if(throwables.getMessage().contains("ORA-01000")) {
                     batchSize = 0;
+                    connSize=0;
                     conn.close();
                     conn=null;
                     this.initialize();
