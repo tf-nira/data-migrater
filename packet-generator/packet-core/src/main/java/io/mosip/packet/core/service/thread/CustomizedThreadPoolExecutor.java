@@ -1,5 +1,7 @@
 package io.mosip.packet.core.service.thread;
 
+import io.mosip.kernel.core.logger.spi.Logger;
+import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.util.FixedListQueue;
 
 import java.util.*;
@@ -21,6 +23,7 @@ public class CustomizedThreadPoolExecutor {
     private Long completedCount = 0L;
     private Long currentPendingCount = 0L;
     private int countOfZeroActiveCount = 0;
+    private static final Logger LOGGER = DataProcessLogger.getLogger(CustomizedThreadPoolExecutor.class);
 
     public int getCountOfZeroActiveCount() {
         return countOfZeroActiveCount;
@@ -205,6 +208,7 @@ public class CustomizedThreadPoolExecutor {
                         }
 
                         System.out.println("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (NAME.equals("PACKET CREATOR") ? ", No of Packets Uploaded : " + NO_OF_PACKETS_UPLOADED : ""));
+                        LOGGER.info("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (NAME.equals("PACKET CREATOR") ? ", No of Packets Uploaded : " + NO_OF_PACKETS_UPLOADED : ""));
                     }
                 } catch (Exception e) {}
             }
