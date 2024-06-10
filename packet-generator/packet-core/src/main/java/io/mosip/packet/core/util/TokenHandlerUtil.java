@@ -49,7 +49,8 @@ public class TokenHandlerUtil {
 				return false;
 			} else if (!DateUtils.before(DateUtils.getUTCCurrentDateTime(), expiryTime)) {
 				return false;
-			} else if (!claims.get("clientId").asString().equals(clientId)) {
+			} else if (!((claims.get("clientId") != null && claims.get("clientId").asString().equals(clientId))
+						|| (claims.get("preferred_username") != null && claims.get("preferred_username").asString().equals(clientId)))) {
 				return false;
 			} else {
 				return true;
