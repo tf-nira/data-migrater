@@ -49,6 +49,9 @@ public class TableDataMapperUtil implements DataMapperUtil {
     @Value("${mosip.packet.objectstore.fetch.enabled:false}")
     private boolean objectStoreFetchEnabled;
 
+    @Value("${mosip.id.schema.selected.handles.attribute.name:selectedHandles}")
+    private String handleAttribute;
+
     @Autowired
     private BioDocApiFactory bioDocApiFactory;
 
@@ -165,6 +168,10 @@ public class TableDataMapperUtil implements DataMapperUtil {
                     }
 
                     dataMap2.get(fieldFormatRequest.getFieldCategory()).put(originalField, demoValue);
+                }
+
+                if(fieldFormatRequest.getUseAsHandle()) {
+                    dataMap2.get(fieldFormatRequest.getFieldCategory()).put(handleAttribute, fieldMap);
                 }
             } else if (fieldFormatRequest.getFieldCategory().equals(FieldCategory.BIO)) {
                 String fieldName = fieldFormatRequest.getFieldList().get(0).getFieldName();

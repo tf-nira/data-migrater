@@ -56,6 +56,9 @@ public class IdSchemaFieldValidator implements Validator {
                 for(String fieldName : fieldFormatRequest.getFieldToMap().split(","))
                     if(!idFieldsList.contains(fieldName))
                         throw new Exception(fieldFormatRequest.getFieldToMap() + " is not found in Id Schema.");
+
+            if(fieldFormatRequest.getUseAsHandle() != null && fieldFormatRequest.getUseAsHandle() && dbImportRequest.getIgnoreIdSchemaFields() != null && dbImportRequest.getIgnoreIdSchemaFields().size() > 0 && dbImportRequest.getIgnoreIdSchemaFields().contains(fieldFormatRequest.getFieldToMap()))
+                throw new Exception(fieldFormatRequest.getFieldToMap() + " is Configured as handle and its mandatory to capture. Please remove same from Ignore ID Schema List.");
         }
         return true;
     }

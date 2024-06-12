@@ -55,7 +55,7 @@
          <dependency>
              <groupId>io.mosip.commons</groupId>
              <artifactId>commons-packet-manager</artifactId>
-             <version>1.2.0.1-B1</version>
+             <version>1.2.0.1</version>
          </dependency>
         <!-- https://mvnrepository.com/artifact/io.mosip.kernel/kernel-core -->
         <dependency>
