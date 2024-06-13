@@ -170,7 +170,7 @@ public class TableDataMapperUtil implements DataMapperUtil {
                     dataMap2.get(fieldFormatRequest.getFieldCategory()).put(originalField, demoValue);
                 }
 
-                if(fieldFormatRequest.getUseAsHandle()) {
+                if(fieldFormatRequest.getUseAsHandle() != null && fieldFormatRequest.getUseAsHandle()) {
                     dataMap2.get(fieldFormatRequest.getFieldCategory()).put(handleAttribute, fieldMap);
                 }
             } else if (fieldFormatRequest.getFieldCategory().equals(FieldCategory.BIO)) {
