@@ -1,12 +1,11 @@
-package io.mosip.packet.core.util;
+package io.mosip.packet.data.datareader;
 
 import com.google.gson.Gson;
 import io.mosip.kernel.core.exception.ExceptionUtils;
 import io.mosip.kernel.core.logger.spi.Logger;
-import io.mosip.packet.core.constant.DBTypes;
-import io.mosip.packet.core.constant.FieldCategory;
-import io.mosip.packet.core.constant.GlobalConfig;
-import io.mosip.packet.core.constant.QuerySelection;
+import io.mosip.packet.core.config.activity.Activity;
+import io.mosip.packet.core.constant.*;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.database.QueryLimitSetter;
 import io.mosip.packet.core.constant.database.QueryOffsetSetter;
 import io.mosip.packet.core.dto.dbimport.*;
@@ -16,6 +15,10 @@ import io.mosip.packet.core.service.thread.ResultSetter;
 import io.mosip.packet.core.service.thread.ThreadDBController;
 import io.mosip.packet.core.service.thread.ThreadDBProcessor;
 import io.mosip.packet.core.spi.datareader.DataReader;
+import io.mosip.packet.core.util.CommonUtil;
+import io.mosip.packet.core.util.DataMapperUtil;
+import io.mosip.packet.core.util.QueryFormatter;
+import io.mosip.packet.core.util.TrackerUtil;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +63,9 @@ public class DataBaseUtil implements DataReader {
 
     @Value("${mosip.extractor.application.id.column}")
     private String applicationIdColumn;
+
+    @Autowired
+    private Activity activity;
 
     private boolean oneTimeCheckForZeroOffset;
 
@@ -279,7 +285,7 @@ public class DataBaseUtil implements DataReader {
                 IS_DATABASE_READ_OPERATION = true;
                 initializeDocumentMap(dbImportRequest);
                 oneTimeCheckForZeroOffset = true;
-                threadPool = new CustomizedThreadPoolExecutor(dbReaderMaxThreadPoolCount, dbReaderMaxRecordsCountPerThreadPool, dbReaderMaxThreadExecCount, "DATABASE READER", true);
+                threadPool = new CustomizedThreadPoolExecutor(dbReaderMaxThreadPoolCount, dbReaderMaxRecordsCountPerThreadPool, dbReaderMaxThreadExecCount, activity.getActivity(ActivityName.DATA_CREATOR.name()).getActivityName().getActivityName(), activity.getActivity(ActivityName.DATA_CREATOR.name()).isMonitorRequired());
 
                 Timer dataReader = new Timer("DataBase Reader");
                 dataReader.schedule(new TimerTask() {

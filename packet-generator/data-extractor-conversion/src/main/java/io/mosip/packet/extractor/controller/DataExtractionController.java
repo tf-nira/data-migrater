@@ -134,7 +134,7 @@ public class DataExtractionController {
         PacketCreatorResponse response = new PacketCreatorResponse();
 
         try {
-            GlobalConfig.setActivity(activity.getActivity(ActivityName.DATA_CREATOR.name()));
+            GlobalConfig.setActivity(activity.setActivity(ActivityName.DATA_CREATOR.name()));
             DBImportRequest importRequest = request.getRequest();
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: importPacketsFromOtherDomain():: entry");
             response = dataExtractionService.createPacketFromDataBase(importRequest);
@@ -171,7 +171,7 @@ public class DataExtractionController {
         ResponseWrapper<PacketCreatorResponse> responseWrapper = new ResponseWrapper();
         PacketCreatorResponse response = new PacketCreatorResponse();
         try {
-            GlobalConfig.setActivity(activity.getActivity(ActivityName.DATA_QUALITY_ANALYZER.name()));
+            GlobalConfig.setActivity(activity.setActivity(ActivityName.DATA_QUALITY_ANALYZER.name()));
             DBImportRequest importRequest = request.getRequest();
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: importPacketsFromOtherDomain():: entry");
             response = dataExtractionService.createPacketFromDataBase(importRequest);

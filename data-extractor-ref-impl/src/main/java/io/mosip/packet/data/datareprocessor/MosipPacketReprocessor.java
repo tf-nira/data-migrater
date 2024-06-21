@@ -1,10 +1,12 @@
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.data.datareprocessor;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import io.mosip.kernel.clientcrypto.service.impl.ClientCryptoFacade;
 import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.packet.core.constant.GlobalConfig;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
 import io.mosip.packet.core.dto.tracker.TrackerRequestDto;
@@ -14,6 +16,7 @@ import io.mosip.packet.core.entity.PacketTracker;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.repository.PacketTrackerRepository;
 import io.mosip.packet.core.service.thread.*;
+import io.mosip.packet.core.spi.datareprocessor.DataReProcessor;
 import io.mosip.packet.core.util.TrackerUtil;
 import io.mosip.packet.core.util.regclient.ConfigUtil;
 import io.mosip.packet.uploader.service.PacketUploaderService;
@@ -21,13 +24,13 @@ import lombok.SneakyThrows;
 import org.apache.commons.io.IOUtils;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,7 +40,7 @@ import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_NAME;
 
 @Component
-public class Reprocessor {
+public class MosipPacketReprocessor implements DataReProcessor {
 
     @Autowired
     private PacketTrackerRepository packetTrackerRepository;
@@ -57,9 +60,6 @@ public class Reprocessor {
     @Value("${mosip.selected.languages}")
     private String primaryLanguage;
 
-    @Value("${mosip.packet.uploader.enable:true}")
-    private boolean enablePaccketUploader;
-
     @Value("${mosip.packet.reprocess.status.list}")
     private String reprocessStatusList;
 
@@ -69,11 +69,15 @@ public class Reprocessor {
     @Autowired
     TrackerUtil trackerUtil;
 
+    @Autowired
+    private ClientCryptoFacade clientCryptoFacade;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
-    private static final Logger LOGGER = DataProcessLogger.getLogger(Reprocessor.class);
+    private static final Logger LOGGER = DataProcessLogger.getLogger(MosipPacketReprocessor.class);
 
-    public void reprocess() throws IOException, ParseException, InterruptedException {
+    @Override
+    public void reProcess() throws Exception {
         PacketCreatorResponse packetCreatorResponse = new PacketCreatorResponse();
         packetCreatorResponse.setRID(new ArrayList<>());
 
@@ -86,13 +90,13 @@ public class Reprocessor {
                 TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
                 trackerRequestDto.setRegNo(resultDto.getRegNo());
                 trackerRequestDto.setRefId(resultDto.getRefId());
-                if (enablePaccketUploader) {
+                if (GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                     trackerRequestDto.setStatus(TrackerStatus.PROCESSED.toString());
                 } else {
                     trackerRequestDto.setStatus(TrackerStatus.PROCESSED_WITHOUT_UPLOAD.toString());
                 }
                 trackerUtil.addTrackerEntry(trackerRequestDto);
-                trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, (enablePaccketUploader ? TrackerStatus.PROCESSED : TrackerStatus.PROCESSED_WITHOUT_UPLOAD), null, enablePaccketUploader ? null : null, null, null);
+                trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, (GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) ? TrackerStatus.PROCESSED : TrackerStatus.PROCESSED_WITHOUT_UPLOAD), null, null, null, null);
             }
         };
 
@@ -109,8 +113,14 @@ public class Reprocessor {
             controller.setProcessor(new ThreadReprocessor() {
                 @Override
                 public void processData(PacketTracker packetTracker) throws Exception {
+                    ByteArrayInputStream bis = new ByteArrayInputStream(clientCryptoFacade.getClientSecurity().isTPMInstance() ? clientCryptoFacade.decrypt(Base64.getDecoder().decode(packetTracker.getRequest())) : Base64.getDecoder().decode(packetTracker.getRequest()));
+                    ObjectInputStream is = new ObjectInputStream(bis);
+                    Object requestValue = (Object) is.readObject();
+                    is.close();
+                    bis.close();
+
                     if(packetTracker.getStatus().equals(TrackerStatus.CREATED.toString()) || packetTracker.getStatus().equals(TrackerStatus.PROCESSED_WITHOUT_UPLOAD.toString())) {
-                        HashMap<String, Object> demoDetails = objectMapper.readValue(packetTracker.getRequest().toString(), new TypeReference<HashMap<String, Object>>() {});
+                        HashMap<String, Object> demoDetails = objectMapper.readValue(requestValue.toString(), new TypeReference<HashMap<String, Object>>() {});
 
                         Path identityFile = Paths.get(System.getProperty("user.dir"), "identity.json");
 
@@ -150,7 +160,7 @@ public class Reprocessor {
                             uploadList.add(uploadDTO);
                             HashMap<String, PacketUploadResponseDTO> response = new HashMap<>();
 
-                            if(enablePaccketUploader) {
+                            if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                                 packetUploaderService.syncPacket(uploadList, ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId(), response);
                                 trackerUtil.addTrackerLocalEntry(packetTracker.getRefId(), packetTracker.getRegNo(), TrackerStatus.SYNCED, null, objectMapper.writeValueAsBytes(uploadList), null, null);
                                 packetUploaderService.uploadSyncedPacket(uploadList, response);
@@ -167,10 +177,10 @@ public class Reprocessor {
                             throw new Exception("Identity Mapping JSON File missing");
                         }
                     } else if(packetTracker.getStatus().equals(TrackerStatus.SYNCED.toString())) {
-                        List<PacketUploadDTO> uploadList = objectMapper.readValue(packetTracker.getRequest().toString(), new TypeReference<List<PacketUploadDTO>>() {});
+                        List<PacketUploadDTO> uploadList = (List<PacketUploadDTO>)requestValue;
                         HashMap<String, PacketUploadResponseDTO> response = new HashMap<>();
 
-                        if(enablePaccketUploader) {
+                        if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                             packetUploaderService.uploadSyncedPacket(uploadList, response);
                         } else {
                             LOGGER.warn("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Uploader Disabled : "+ (new Gson()).toJson(response));
@@ -193,5 +203,13 @@ public class Reprocessor {
         do {
             Thread.sleep(15000);
         } while(!GlobalConfig.isThreadPoolCompleted("RE-PROCESSOR"));
+    }
+
+    @Override
+    public void connectDataReader() throws Exception {
+    }
+
+    @Override
+    public void disconnectDataReader() {
     }
 }

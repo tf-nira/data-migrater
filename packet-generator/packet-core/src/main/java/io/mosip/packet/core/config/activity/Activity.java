@@ -67,6 +67,19 @@ public class Activity {
                             }
                             activity.setApplicableReferenceClass(list);
                             break;
+                        case "additionalActivity":
+                            List<ActivityName> activityList = new ArrayList<>();
+                            if(entry.getValue() != null && !entry.getValue().isEmpty())
+                                for(String activityEnum : entry.getValue().split(",")) {
+                                    ActivityName val =  ActivityName.valueOf(activityEnum);
+
+                                    if(val==null)
+                                        throw new Exception("Customized Activity Name not Found in ActivityName Enum for " + val);
+
+                                    activityList.add(val);
+                                }
+                            activity.setApplicableActivity(activityList);
+                            break;
                         default :
                             activity.isMonitorRequired = false;
                             break;
@@ -103,8 +116,20 @@ public class Activity {
         return list;
     }
 
-
     public Activity getActivity(String key) throws Exception {
+        Activity activity = null;
+        if(key == null)
+            activity = activityList.get(config.getActivityName());
+        else
+            activity = activityList.get(key);
+
+        if(activity ==null)
+            throw new Exception("Entered Activity Name" + (key != null ? key : config.getActivityName()) + " is Invalid");
+
+        return activity;
+    }
+
+    public Activity setActivity(String key) throws Exception {
         Activity activity = null;
         if(key == null)
             activity = activityList.get(config.getActivityName());

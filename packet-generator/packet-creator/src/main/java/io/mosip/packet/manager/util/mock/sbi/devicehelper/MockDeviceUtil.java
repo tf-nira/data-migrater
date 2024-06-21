@@ -60,7 +60,7 @@ public class MockDeviceUtil {
 
     private LocalDateTime lastInitializedTime;
 
-    @Value("${mosip.mock.sbi.device.re-initialization.minutes:10}")
+    @Value("${mosip.mock.sbi.device.re-initialization.minutes:5}")
     private Integer reInitMiniutes;
 
     public BioMetricsDto getBiometricData (String deviceTypeName, CaptureRequestDto requestObject, String bioValue,
@@ -161,7 +161,12 @@ public class MockDeviceUtil {
             }
         }
 
-        return null;
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+        }
+
+        return getDeviceHelper (deviceTypeName);
     }
 /*
     private String processRCaptureInfo(CaptureRequestDto requestObject) {

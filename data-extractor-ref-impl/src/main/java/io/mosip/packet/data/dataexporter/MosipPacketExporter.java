@@ -4,6 +4,7 @@ import io.mosip.commons.packet.dto.PacketInfo;
 import io.mosip.commons.packet.dto.packet.PacketDto;
 import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.packet.core.constant.GlobalConfig;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.upload.PacketUploadDTO;
@@ -56,9 +57,6 @@ public class MosipPacketExporter implements DataExporter {
     @Value("${mosip.selected.languages}")
     private String primaryLanguage;
 
-    @Value("${mosip.packet.uploader.enable:true}")
-    private boolean enablePaccketUploader;
-
     @Override
     public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
                          String trackerColumn, ResultSetter setter) throws Exception {
@@ -110,7 +108,7 @@ public class MosipPacketExporter implements DataExporter {
             uploadDTO.setRegistrationId(info.getId().split("-")[0]);
             uploadDTO.setLangCode(primaryLanguage);
 
-            if (enablePaccketUploader) {
+            if (GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                 //                                  packetUploaderService.syncPacket(uploadList, ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId(), response);
                 trackerUtil.addTrackerLocalEntry(demoDetails.get(trackerColumn).toString(), info.getId(), TrackerStatus.READY_TO_SYNC, null, uploadDTO, SESSION_KEY, GlobalConfig.getActivityName());
                 //                                  packetUploaderService.uploadSyncedPacket(uploadList, response);

@@ -7,6 +7,7 @@ import io.mosip.commons.packet.dto.packet.PacketDto;
 import io.mosip.kernel.biometrics.entities.BIR;
 import io.mosip.kernel.clientcrypto.service.impl.ClientCryptoFacade;
 import io.mosip.kernel.core.logger.spi.Logger;
+import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.*;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
@@ -86,9 +87,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     @Value("${mosip.packet.upload.max-thread-execution-count:5}")
     private Integer uploadMaxThreadExecCount;
 
-    @Value("${mosip.packet.uploader.enable:true}")
-    private boolean enablePaccketUploader;
-
     @Value("${mosip.extractor.application.id.column:}")
     private String applicationIdColumn;
 
@@ -147,6 +145,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Autowired
     private DataExporterApiFactory dataExporterApiFactory;
+
+    @Autowired
+    private Activity activity;
 
     @Override
     public HashMap<String, Object> extractBioDataFromDBAsBytes(DBImportRequest dbImportRequest, Boolean localStoreRequired) throws Exception {
@@ -222,7 +223,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             populateTableFields(dbImportRequest);
             dataReaderApiFactory.connectDataReader(dbImportRequest);
             IS_PACKET_CREATOR_OPERATION = true;
-            CustomizedThreadPoolExecutor threadPool = new CustomizedThreadPoolExecutor(maxThreadPoolCount, maxRecordsCountPerThreadPool, maxThreadExecCount, GlobalConfig.getActivityName());
+            Activity processorActivity = activity.getActivity(ActivityName.DATA_PROCESSOR.name());
+            CustomizedThreadPoolExecutor threadPool = new CustomizedThreadPoolExecutor(maxThreadPoolCount, maxRecordsCountPerThreadPool, maxThreadExecCount, processorActivity.getActivityName().getActivityName(), processorActivity.isMonitorRequired());
 
             ResultSetter setter = new ResultSetter() {
                 @SneakyThrows
@@ -297,9 +299,10 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             }, 0, DELAY_SECONDS); */
 
             Date startTime = new Date();
-            if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) &&  enablePaccketUploader) {
+            if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                 NO_OF_PACKETS_UPLOADED = 0L;
-                CustomizedThreadPoolExecutor uploadExector = new CustomizedThreadPoolExecutor(uploadMaxThreadPoolCount, uploadMaxRecordsCountPerThreadPool,uploadMaxThreadExecCount, "PACKET UPLOADER", true);
+                Activity exportActivity = activity.getActivity(ActivityName.DATA_EXPORTER.name());
+                CustomizedThreadPoolExecutor uploadExector = new CustomizedThreadPoolExecutor(uploadMaxThreadPoolCount, uploadMaxRecordsCountPerThreadPool,uploadMaxThreadExecCount, exportActivity.getActivityName().getActivityName(), exportActivity.isMonitorRequired());
                 Timer uploaderTimer = new Timer("Uploading Packet");
                 uploaderTimer.schedule(new TimerTask() {
                     @SneakyThrows
@@ -323,6 +326,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                     ByteArrayInputStream bis = new ByteArrayInputStream(clientCryptoFacade.getClientSecurity().isTPMInstance() ? clientCryptoFacade.decrypt(Base64.getDecoder().decode(packetTracker.getRequest())) : Base64.getDecoder().decode(packetTracker.getRequest()));
                                     ObjectInputStream is = new ObjectInputStream(bis);
                                     PacketUploadDTO uploadDTO = (PacketUploadDTO) is.readObject();
+                                    is.close();
+                                    bis.close();
                                     packetId = uploadDTO.getPacketId();
                                     LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Uploading Packet for " + (new Gson()).toJson(uploadDTO));
 
@@ -343,7 +348,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                             resultDto.setRegNo(uploadDTO.getPacketId());
                                             resultDto.setRefId(packetTracker.getRefId());
                                             resultDto.setComments((new Gson()).toJson(response));
-                                            resultDto.setStatus(enablePaccketUploader ? TrackerStatus.PROCESSED : TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
+                                            resultDto.setStatus(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) ? TrackerStatus.PROCESSED : TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
                                             setter.setResult(resultDto);
                                             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Response : " + (new Gson()).toJson(response));
                                         }

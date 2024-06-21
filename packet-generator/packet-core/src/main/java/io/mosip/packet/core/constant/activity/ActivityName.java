@@ -3,8 +3,10 @@ package io.mosip.packet.core.constant.activity;
 import io.mosip.packet.core.constant.ReferenceClassName;
 
 public enum ActivityName {
-    DATA_EXPORTER("DATA UPLOADER", null, null),
-    DATA_CREATOR("DATA CREATOR", new ActivityReferenceClassMapping(ReferenceClassName.DATABASE_READER, ReferenceClassName.MOSIP_PACKET_UPLOAD), new ActivityName[]{DATA_EXPORTER}),
+    DATA_EXPORTER("DATA UPLOADER", new ActivityReferenceClassMapping(ReferenceClassName.MOSIP_PACKET_UPLOAD), null),
+    DATA_REPROCESSOR("DATA REPROCESSOR", new ActivityReferenceClassMapping(ReferenceClassName.MOSIP_PACKET_REPROCESSOR),  new ActivityName[]{DATA_EXPORTER}),
+    DATA_PROCESSOR("DATA PROCESSOR", new ActivityReferenceClassMapping(),  null),
+    DATA_CREATOR("DATA CREATOR", new ActivityReferenceClassMapping(ReferenceClassName.DATABASE_READER), new ActivityName[]{DATA_EXPORTER, DATA_REPROCESSOR}),
     DATA_QUALITY_ANALYZER("QUALITY ANALYSIS", new ActivityReferenceClassMapping(ReferenceClassName.DATABASE_READER), null);
 
     private String activityName;
@@ -23,5 +25,9 @@ public enum ActivityName {
 
     public ActivityName[] getApplicableOtherActivity() {
         return subActivity;
+    }
+
+    public String getActivityName() {
+        return activityName;
     }
 }

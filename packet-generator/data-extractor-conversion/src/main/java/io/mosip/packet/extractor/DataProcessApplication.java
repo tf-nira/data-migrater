@@ -6,12 +6,13 @@ import io.mosip.kernel.dataaccess.hibernate.config.HibernateDaoConfig;
 import io.mosip.kernel.dataaccess.hibernate.repository.impl.HibernateRepositoryImpl;
 import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.GlobalConfig;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
-import io.mosip.packet.extractor.service.DataExtractionService;
+import io.mosip.packet.core.spi.datareprocessor.DataReProcessorApiFactory;
 import io.mosip.packet.core.util.regclient.ConfigUtil;
-import io.mosip.packet.extractor.util.Reprocessor;
+import io.mosip.packet.extractor.service.DataExtractionService;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
 import org.apache.commons.lang.RandomStringUtils;
 import org.springframework.boot.SpringApplication;
@@ -49,17 +50,13 @@ public class DataProcessApplication {
             else
                 SESSION_KEY = RandomStringUtils.randomAlphanumeric(20);
 
-            Boolean isReprocessEnable = true;
-            if(context.getEnvironment().getProperty("mosip.packet.creator.reprocessor.enable") != null)
-                isReprocessEnable = Boolean.parseBoolean(context.getEnvironment().getProperty("mosip.packet.creator.reprocessor.enable"));
-
             context.getBean(MockDeviceUtil.class).resetDevices();
             context.getBean(MockDeviceUtil.class).initDeviceHelpers();
             context.getBean(ConfigUtil.class).loadConfigDetails();
-            GlobalConfig.setActivity(context.getBean(Activity.class).getActivity(null));
+            GlobalConfig.setActivity(context.getBean(Activity.class).setActivity(null));
 
-            if(isReprocessEnable)
-                context.getBean(Reprocessor.class).reprocess();
+            if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_REPROCESSOR))
+                context.getBean(DataReProcessorApiFactory.class).reProcess();
 
             if(internal) {
                 System.out.println("Current Session Key is " + SESSION_KEY + ". Please Enter New Session Key in-case Change.");

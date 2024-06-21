@@ -32,6 +32,11 @@
             <artifactId>packet-creator</artifactId>
             <version>1.2.0.1-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>io.mosip.packet</groupId>
+            <artifactId>packet-uploader</artifactId>
+            <version>1.2.0.1-SNAPSHOT</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/io.mosip.kernel/kernel-cbeffutil-api -->
         <dependency>
             <groupId>io.mosip.kernel</groupId>

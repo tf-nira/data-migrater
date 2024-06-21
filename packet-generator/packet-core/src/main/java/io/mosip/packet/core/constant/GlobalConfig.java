@@ -46,7 +46,7 @@ public class GlobalConfig {
     private static Activity activity;
 
     public static String getActivityName() {
-        return activity.getActivityName().name();
+        return activity.getActivityName().getActivityName();
     }
 
     public static List<ActivityName> getApplicableActivityList() {
