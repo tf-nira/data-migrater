@@ -15,6 +15,7 @@ import io.mosip.packet.core.service.thread.CustomizedThreadPoolExecutor;
 import io.mosip.packet.core.service.thread.ResultSetter;
 import io.mosip.packet.core.service.thread.ThreadDBController;
 import io.mosip.packet.core.service.thread.ThreadDBProcessor;
+import io.mosip.packet.core.spi.datareader.DataReader;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +29,7 @@ import static io.mosip.packet.core.constant.GlobalConfig.*;
 import static io.mosip.packet.core.constant.RegistrationConstants.*;
 
 @Component
-public class DataBaseUtil {
+public class DataBaseUtil implements DataReader {
     private static final Logger LOGGER = DataProcessLogger.getLogger(DataBaseUtil.class);
     private Connection conn = null;
     private boolean isTrackerSameHost = false;
@@ -96,125 +97,6 @@ public class DataBaseUtil {
                     documentValue.put(fieldFormatRequest.getFieldToMap(), fieldFormatRequest.getDocumentAttributes().getDocumentValueMap());
                 }
             }
-    }
-
-    public void readDataFromDatabase(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, ResultSetter setter) throws Exception {
-        TOTAL_RECORDS_FOR_PROCESS = 0l;
-
-        try {
-            if(conn != null) {
-                IS_DATABASE_READ_OPERATION = true;
-                initializeDocumentMap(dbImportRequest);
-                oneTimeCheckForZeroOffset = true;
-                threadPool = new CustomizedThreadPoolExecutor(dbReaderMaxThreadPoolCount, dbReaderMaxRecordsCountPerThreadPool, dbReaderMaxThreadExecCount, "DATABASE READER", true);
-
-                Timer dataReader = new Timer("DataBase Reader");
-                dataReader.schedule(new TimerTask() {
-                    @SneakyThrows
-                    @Override
-                    public void run() {
-                        PreparedStatement statement1 = null;
-                        ResultSet scrollableResultSet = null;
-                        try {
-                            Float processPercentage = Float.valueOf((getPendingCountForProcess().floatValue() / Float.valueOf(dbReaderMaxThreadPoolCount * dbReaderMaxRecordsCountPerThreadPool)));
-                            LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Database Reader Initial Condition for DB Read  ProcessPercentage, OFFSET_VALUE, OneTimeCheckForZeroOffset, CurrentPendingCount, PendingCountForProcess" +
-                                    processPercentage, OFFSET_VALUE, oneTimeCheckForZeroOffset, threadPool.getCurrentPendingCount(), getPendingCountForProcess());
-
-                            if ((processPercentage > 0.05 && processPercentage != 0) || (processPercentage == 0 && OFFSET_VALUE > 0 && oneTimeCheckForZeroOffset) || threadPool.getCurrentPendingCount() > 0) {
-                            } else {
-                                OFFSET_VALUE = trackerUtil.getDatabaseOffset() == null ? 0 : trackerUtil.getDatabaseOffset();
-                                List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
-                                Collections.sort(tableRequestDtoList);
-                                TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
-                                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                                scrollableResultSet = statement1.executeQuery();
-
-                                if(scrollableResultSet.last()) {
-                                    TOTAL_RECORDS_FOR_PROCESS += Long.valueOf(scrollableResultSet.getRow());
-                                    OFFSET_VALUE += Long.valueOf(scrollableResultSet.getRow());
-                                    trackerUtil.updateDatabaseOffset(OFFSET_VALUE);
-                                }
-
-                                if (scrollableResultSet.getRow() <= 0) {
-                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Cancelling Database Reader since No Data" + scrollableResultSet.getFetchSize());
-                                    dataReader.cancel();
-                                    threadPool.setInputProcessCompleted(true);
-                                    IS_DATABASE_READ_OPERATION = false;
-                                }
-
-                                scrollableResultSet.beforeFirst();
-
-                                if (scrollableResultSet != null) {
-                                    while (scrollableResultSet.next()) {
-                                        try {
-                                            Map<String, Object> resultData = extractResultSet(scrollableResultSet);
-                                            ThreadDBController baseDbThreadController = new ThreadDBController();
-                                            baseDbThreadController.setSetter(setter);
-                                            baseDbThreadController.setResultMap(resultData);
-                                            baseDbThreadController.setProcessor(new ThreadDBProcessor() {
-                                                @Override
-                                                public void processData(ResultSetter setter, Map<String, Object> resultMap) throws Exception {
-                                                    Map<FieldCategory, HashMap<String, Object>> dataHashMap = new HashMap<>();
-                                                    populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultMap, dataHashMap, fieldsCategoryMap, false);
-
-                                                    if (!trackerUtil.isRecordPresent(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
-                                                        for (int i = 1; i < tableRequestDtoList.size(); i++) {
-                                                            PreparedStatement statement2 = null;
-                                                            ResultSet resultSet1 = null;
-                                                            try {
-                                                                TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
-                                                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                                                                resultSet1 = statement2.executeQuery();
-
-                                                                Map<String, Object> resultData1 = new HashMap<>();
-                                                                while (resultSet1 != null && resultSet1.next()) {
-                                                                    resultData1.putAll(extractResultSet(resultSet1));
-                                                                }
-
-                                                                if(resultData1 != null)
-                                                                    populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataHashMap, fieldsCategoryMap, false);
-                                                            } finally {
-                                                                if (resultSet1 != null)
-                                                                    resultSet1.close();
-
-                                                                if (statement2 != null)
-                                                                    statement2.close();
-                                                            }
-                                                        }
-                                                        setter.setResult(dataHashMap);
-                                                    } else {
-                                                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
-                                                    }
-                                                }
-                                            });
-                                            threadPool.ExecuteTask(baseDbThreadController);
-                                        } catch (Exception e) {
-                                            threadPool.increaseFailedRecordCount();
-                                            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
-                                        }
-                                    }
-                                }
-                                oneTimeCheckForZeroOffset = false;
-                            }
-                        } catch (Exception e) {
-                            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
-                            throw e;
-                        } finally {
-                            if(scrollableResultSet != null)
-                                scrollableResultSet.close();
-
-                            if(statement1 != null)
-                                statement1.close();
-                        }
-                    }
-                }, 0,  70000L);
-            } else
-                throw new SQLException("Unable to Connect With Database. Please check the Configuration");
-        } catch(Exception e) {
-            if(threadPool != null)
-                threadPool.increaseFailedRecordCount();
-            throw e;
-        }
     }
 
     private String generateQuery(TableRequestDto tableRequestDto, Map<FieldCategory, HashMap<String, Object>> dataMap, Map<String, HashMap<String, String>> fieldsCategoryMap) throws Exception {
@@ -386,5 +268,135 @@ public class DataBaseUtil {
         }
 
         return  "(" + mainCondition + " " + condition + ")";
+    }
+
+    @Override
+    public void readData(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, ResultSetter setter) throws Exception {
+        TOTAL_RECORDS_FOR_PROCESS = 0l;
+
+        try {
+            if(conn != null) {
+                IS_DATABASE_READ_OPERATION = true;
+                initializeDocumentMap(dbImportRequest);
+                oneTimeCheckForZeroOffset = true;
+                threadPool = new CustomizedThreadPoolExecutor(dbReaderMaxThreadPoolCount, dbReaderMaxRecordsCountPerThreadPool, dbReaderMaxThreadExecCount, "DATABASE READER", true);
+
+                Timer dataReader = new Timer("DataBase Reader");
+                dataReader.schedule(new TimerTask() {
+                    @SneakyThrows
+                    @Override
+                    public void run() {
+                        PreparedStatement statement1 = null;
+                        ResultSet scrollableResultSet = null;
+                        try {
+                            Float processPercentage = Float.valueOf((getPendingCountForProcess().floatValue() / Float.valueOf(dbReaderMaxThreadPoolCount * dbReaderMaxRecordsCountPerThreadPool)));
+                            LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Database Reader Initial Condition for DB Read  ProcessPercentage, OFFSET_VALUE, OneTimeCheckForZeroOffset, CurrentPendingCount, PendingCountForProcess" +
+                                    processPercentage, OFFSET_VALUE, oneTimeCheckForZeroOffset, threadPool.getCurrentPendingCount(), getPendingCountForProcess());
+
+                            if ((processPercentage > 0.05 && processPercentage != 0) || (processPercentage == 0 && OFFSET_VALUE > 0 && oneTimeCheckForZeroOffset) || threadPool.getCurrentPendingCount() > 0) {
+                            } else {
+                                OFFSET_VALUE = trackerUtil.getDatabaseOffset() == null ? 0 : trackerUtil.getDatabaseOffset();
+                                List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
+                                Collections.sort(tableRequestDtoList);
+                                TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
+                                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                scrollableResultSet = statement1.executeQuery();
+
+                                if(scrollableResultSet.last()) {
+                                    TOTAL_RECORDS_FOR_PROCESS += Long.valueOf(scrollableResultSet.getRow());
+                                    OFFSET_VALUE += Long.valueOf(scrollableResultSet.getRow());
+                                    trackerUtil.updateDatabaseOffset(OFFSET_VALUE);
+                                }
+
+                                if (scrollableResultSet.getRow() <= 0) {
+                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Cancelling Database Reader since No Data" + scrollableResultSet.getFetchSize());
+                                    dataReader.cancel();
+                                    threadPool.setInputProcessCompleted(true);
+                                    IS_DATABASE_READ_OPERATION = false;
+                                }
+
+                                scrollableResultSet.beforeFirst();
+
+                                if (scrollableResultSet != null) {
+                                    while (scrollableResultSet.next()) {
+                                        try {
+                                            Map<String, Object> resultData = extractResultSet(scrollableResultSet);
+                                            ThreadDBController baseDbThreadController = new ThreadDBController();
+                                            baseDbThreadController.setSetter(setter);
+                                            baseDbThreadController.setResultMap(resultData);
+                                            baseDbThreadController.setProcessor(new ThreadDBProcessor() {
+                                                @Override
+                                                public void processData(ResultSetter setter, Map<String, Object> resultMap) throws Exception {
+                                                    Map<FieldCategory, HashMap<String, Object>> dataHashMap = new HashMap<>();
+                                                    populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultMap, dataHashMap, fieldsCategoryMap, false);
+
+                                                    if (!trackerUtil.isRecordPresent(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                                                        for (int i = 1; i < tableRequestDtoList.size(); i++) {
+                                                            PreparedStatement statement2 = null;
+                                                            ResultSet resultSet1 = null;
+                                                            try {
+                                                                TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
+                                                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                                                resultSet1 = statement2.executeQuery();
+
+                                                                Map<String, Object> resultData1 = new HashMap<>();
+                                                                while (resultSet1 != null && resultSet1.next()) {
+                                                                    resultData1.putAll(extractResultSet(resultSet1));
+                                                                }
+
+                                                                if(resultData1 != null)
+                                                                    populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataHashMap, fieldsCategoryMap, false);
+                                                            } finally {
+                                                                if (resultSet1 != null)
+                                                                    resultSet1.close();
+
+                                                                if (statement2 != null)
+                                                                    statement2.close();
+                                                            }
+                                                        }
+                                                        setter.setResult(dataHashMap);
+                                                    } else {
+                                                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
+                                                    }
+                                                }
+                                            });
+                                            threadPool.ExecuteTask(baseDbThreadController);
+                                        } catch (Exception e) {
+                                            threadPool.increaseFailedRecordCount();
+                                            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
+                                        }
+                                    }
+                                }
+                                oneTimeCheckForZeroOffset = false;
+                            }
+                        } catch (Exception e) {
+                            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
+                            throw e;
+                        } finally {
+                            if(scrollableResultSet != null)
+                                scrollableResultSet.close();
+
+                            if(statement1 != null)
+                                statement1.close();
+                        }
+                    }
+                }, 0,  70000L);
+            } else
+                throw new SQLException("Unable to Connect With Database. Please check the Configuration");
+        } catch(Exception e) {
+            if(threadPool != null)
+                threadPool.increaseFailedRecordCount();
+            throw e;
+        }
+    }
+
+    @Override
+    public void connectDataReader(DBImportRequest dbImportRequest) throws Exception {
+        connectDatabase(dbImportRequest);
+    }
+
+    @Override
+    public void disconnectDataReader() {
+        closeConnection();
     }
 }

@@ -1,5 +1,7 @@
 package io.mosip.packet.core.constant;
 
+import io.mosip.packet.core.config.activity.Activity;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.service.thread.CustomizedThreadPoolExecutor;
 import io.mosip.packet.core.util.FixedListQueue;
 import org.springframework.stereotype.Component;
@@ -41,8 +43,27 @@ public class GlobalConfig {
 
     public static List<CustomizedThreadPoolExecutor> THREAD_POOL_EXECUTOR_LIST = new ArrayList<>();
 
+    private static Activity activity;
+
     public static String getActivityName() {
-        return (IS_ONLY_FOR_QUALITY_CHECK ? "QUALITY ANALYSIS" : "PACKET CREATOR");
+        return activity.getActivityName().name();
+    }
+
+    public static List<ActivityName> getApplicableActivityList() {
+        return activity.getApplicableActivity();
+    }
+
+    public static List<ReferenceClassName> getApplicableReferenceClassList() {
+        return activity.getApplicableReferenceClass();
+    }
+
+    public static void setActivity(Activity activity) {
+        GlobalConfig.activity = activity;
+
+        if(activity.getActivityName().equals(ActivityName.DATA_QUALITY_ANALYZER))
+            IS_ONLY_FOR_QUALITY_CHECK = true;
+        else
+            IS_ONLY_FOR_QUALITY_CHECK = false;
     }
 
     public static boolean isThreadPoolCompleted() throws InterruptedException {

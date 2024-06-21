@@ -2,14 +2,15 @@ package io.mosip.packet.extractor;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
 import io.mosip.kernel.dataaccess.hibernate.config.HibernateDaoConfig;
 import io.mosip.kernel.dataaccess.hibernate.repository.impl.HibernateRepositoryImpl;
+import io.mosip.packet.core.config.activity.Activity;
+import io.mosip.packet.core.constant.GlobalConfig;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
 import io.mosip.packet.extractor.service.DataExtractionService;
-import io.mosip.packet.extractor.util.ConfigUtil;
+import io.mosip.packet.core.util.regclient.ConfigUtil;
 import io.mosip.packet.extractor.util.Reprocessor;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
 import org.apache.commons.lang.RandomStringUtils;
@@ -37,8 +38,6 @@ public class DataProcessApplication {
         ConfigurableApplicationContext context = SpringApplication.run(DataProcessApplication.class, args);
         try {
             boolean internal = Boolean.parseBoolean(context.getEnvironment().getProperty("mosip.packet.creator.refer.internal.json.file"));
-            if(context.getEnvironment().getProperty("mosip.extractor.enable.quality.check.only") != null)
-                IS_ONLY_FOR_QUALITY_CHECK = Boolean.parseBoolean(context.getEnvironment().getProperty("mosip.extractor.enable.quality.check.only"));
             if(context.getEnvironment().getProperty("mosip.biometric.sdk.provider.write.sdk.response") != null)
                 WRITE_BIOSDK_RESPONSE = Boolean.parseBoolean(context.getEnvironment().getProperty("mosip.biometric.sdk.provider.write.sdk.response"));
             if(context.getEnvironment().getProperty("mosip.packet.creator.tracking.required") != null)
@@ -57,6 +56,8 @@ public class DataProcessApplication {
             context.getBean(MockDeviceUtil.class).resetDevices();
             context.getBean(MockDeviceUtil.class).initDeviceHelpers();
             context.getBean(ConfigUtil.class).loadConfigDetails();
+            GlobalConfig.setActivity(context.getBean(Activity.class).getActivity(null));
+
             if(isReprocessEnable)
                 context.getBean(Reprocessor.class).reprocess();
 
@@ -70,7 +71,7 @@ public class DataProcessApplication {
                     SESSION_KEY = sessionKey.trim().toUpperCase();
                 }
 
-                System.out.println("Current Flow Enabled for  " + (IS_ONLY_FOR_QUALITY_CHECK ? "Quality Calculation" : "Packet Creation") + " . Do you want to Continue (Y-Yes, N-No)");
+                System.out.println("Current Flow Enabled for  " + getActivityName() + " . Do you want to Continue (Y-Yes, N-No)");
                 String option = "";
 
                 if(!IS_RUNNING_AS_BATCH) {

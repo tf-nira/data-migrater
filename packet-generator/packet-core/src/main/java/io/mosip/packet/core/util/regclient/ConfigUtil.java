@@ -1,8 +1,7 @@
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.core.util.regclient;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
 import io.mosip.kernel.clientcrypto.service.impl.ClientCryptoFacade;
 import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.kernel.core.util.CryptoUtil;
@@ -26,7 +25,6 @@ import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.repository.MachineMasterRepository;
 import io.mosip.packet.core.service.DataRestClientService;
 import io.mosip.packet.core.util.DateUtils;
-import io.mosip.packet.core.util.RestApiClient;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;

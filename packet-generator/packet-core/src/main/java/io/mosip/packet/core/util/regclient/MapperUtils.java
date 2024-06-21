@@ -1,5 +1,5 @@
 
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.core.util.regclient;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;

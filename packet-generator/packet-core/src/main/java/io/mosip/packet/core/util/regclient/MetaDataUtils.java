@@ -1,4 +1,4 @@
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.core.util.regclient;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;

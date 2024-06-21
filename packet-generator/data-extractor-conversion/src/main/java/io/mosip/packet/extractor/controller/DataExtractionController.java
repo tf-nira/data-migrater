@@ -1,7 +1,10 @@
 package io.mosip.packet.extractor.controller;
 
 import io.mosip.kernel.core.logger.spi.Logger;
-import static io.mosip.packet.core.constant.GlobalConfig.IS_ONLY_FOR_QUALITY_CHECK;
+
+import io.mosip.packet.core.config.activity.Activity;
+import io.mosip.packet.core.constant.activity.ActivityName;
+import io.mosip.packet.core.constant.GlobalConfig;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
@@ -33,6 +36,9 @@ public class DataExtractionController {
 
     @Autowired
     DataExtractionService dataExtractionService;
+
+    @Autowired
+    Activity activity;
 
     @PostMapping(value = "/extractImageFromPacket", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResponseWrapper> extractImageFromRID(@RequestBody RequestWrapper<RegistrationIdRequest> request) {
@@ -126,9 +132,9 @@ public class DataExtractionController {
     public ResponseEntity<ResponseWrapper> createPacketFromOtherDomain(@RequestBody RequestWrapper<DBImportRequest> request) {
         ResponseWrapper<PacketCreatorResponse> responseWrapper = new ResponseWrapper();
         PacketCreatorResponse response = new PacketCreatorResponse();
-        IS_ONLY_FOR_QUALITY_CHECK = false;
 
         try {
+            GlobalConfig.setActivity(activity.getActivity(ActivityName.DATA_CREATOR.name()));
             DBImportRequest importRequest = request.getRequest();
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: importPacketsFromOtherDomain():: entry");
             response = dataExtractionService.createPacketFromDataBase(importRequest);
@@ -161,11 +167,11 @@ public class DataExtractionController {
 
     @PostMapping(value = "/exportBioQualityFromOtherDomain", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResponseWrapper> exportBioQualityFromOtherDomain(@RequestBody RequestWrapper<DBImportRequest> request) {
-        IS_ONLY_FOR_QUALITY_CHECK = true;
         RestApiClient.setIsAuthRequired(false);
         ResponseWrapper<PacketCreatorResponse> responseWrapper = new ResponseWrapper();
         PacketCreatorResponse response = new PacketCreatorResponse();
         try {
+            GlobalConfig.setActivity(activity.getActivity(ActivityName.DATA_QUALITY_ANALYZER.name()));
             DBImportRequest importRequest = request.getRequest();
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: importPacketsFromOtherDomain():: entry");
             response = dataExtractionService.createPacketFromDataBase(importRequest);

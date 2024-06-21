@@ -1,4 +1,4 @@
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.manager.util;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -34,10 +34,10 @@ import io.mosip.packet.core.exception.ValidationFailedException;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.repository.BlocklistedWordsRepository;
 import io.mosip.packet.core.service.DataRestClientService;
-import io.mosip.packet.core.spi.BioSdkApiFactory;
 import io.mosip.packet.core.util.BioSDKUtil;
 import io.mosip.packet.core.util.CommonUtil;
 import io.mosip.packet.core.util.mockmds.StringHelper;
+import io.mosip.packet.core.util.regclient.ConfigUtil;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

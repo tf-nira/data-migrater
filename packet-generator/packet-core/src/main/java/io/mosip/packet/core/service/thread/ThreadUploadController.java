@@ -8,6 +8,10 @@ public class ThreadUploadController extends BaseThreadController {
     private PacketUploadDTO result;
     private ThreadUploadProcessor processor;
 
+    public ThreadUploadController() {
+        failedCountIncrement = false;
+    }
+
     @Override
     public void execute() throws Exception {
         processor.processData(setter, result);

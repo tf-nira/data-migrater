@@ -3,12 +3,12 @@ package io.mosip.packet.extractor.service.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
-import io.mosip.commons.packet.dto.PacketInfo;
 import io.mosip.commons.packet.dto.packet.PacketDto;
 import io.mosip.kernel.biometrics.entities.BIR;
 import io.mosip.kernel.clientcrypto.service.impl.ClientCryptoFacade;
 import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.packet.core.constant.*;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
@@ -26,31 +26,26 @@ import io.mosip.packet.core.repository.PacketTrackerRepository;
 import io.mosip.packet.core.service.DataRestClientService;
 import io.mosip.packet.core.service.thread.*;
 import io.mosip.packet.core.spi.BioConvertorApiFactory;
+import io.mosip.packet.core.spi.dataexporter.DataExporterApiFactory;
+import io.mosip.packet.core.spi.datareader.DataReaderApiFactory;
 import io.mosip.packet.core.spi.QualityWriterFactory;
 import io.mosip.packet.core.util.*;
 import io.mosip.packet.extractor.service.DataExtractionService;
-import io.mosip.packet.extractor.util.ConfigUtil;
-import io.mosip.packet.extractor.util.PacketCreator;
+import io.mosip.packet.core.util.regclient.ConfigUtil;
+import io.mosip.packet.manager.util.PacketCreator;
 import io.mosip.packet.extractor.util.TableDataMapperUtil;
 import io.mosip.packet.extractor.util.ValidationUtil;
 import io.mosip.packet.manager.service.PacketCreatorService;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
 import io.mosip.packet.uploader.service.PacketUploaderService;
 import lombok.SneakyThrows;
-import org.apache.commons.io.IOUtils;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.ObjectInputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -107,9 +102,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     private MockDeviceUtil mockDeviceUtil;
 
     @Autowired
-    private DataBaseUtil dataBaseUtil;
-
-    @Autowired
     private CommonUtil commonUtil;
 
     @Autowired
@@ -150,10 +142,16 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     @Autowired
     private BioSDKUtil bioSDKUtil;
 
+    @Autowired
+    private DataReaderApiFactory dataReaderApiFactory;
+
+    @Autowired
+    private DataExporterApiFactory dataExporterApiFactory;
+
     @Override
     public HashMap<String, Object> extractBioDataFromDBAsBytes(DBImportRequest dbImportRequest, Boolean localStoreRequired) throws Exception {
         HashMap<String, Object> biodata = new HashMap<>();
-        dataBaseUtil.connectDatabase(dbImportRequest);
+        dataReaderApiFactory.connectDataReader(dbImportRequest);
         populateTableFields(dbImportRequest);
         commonUtil.updateFieldCategory(dbImportRequest);
 
@@ -222,7 +220,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             enumList.add(ValidatorEnum.BIOMETRIC_FORMAT_VALIDATOR);
             validationUtil.validateRequest(dbImportRequest, enumList);
             populateTableFields(dbImportRequest);
-            dataBaseUtil.connectDatabase(dbImportRequest);
+            dataReaderApiFactory.connectDataReader(dbImportRequest);
             IS_PACKET_CREATOR_OPERATION = true;
             CustomizedThreadPoolExecutor threadPool = new CustomizedThreadPoolExecutor(maxThreadPoolCount, maxRecordsCountPerThreadPool, maxThreadExecCount, GlobalConfig.getActivityName());
 
@@ -299,7 +297,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             }, 0, DELAY_SECONDS); */
 
             Date startTime = new Date();
-            if(enablePaccketUploader) {
+            if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) &&  enablePaccketUploader) {
                 NO_OF_PACKETS_UPLOADED = 0L;
                 CustomizedThreadPoolExecutor uploadExector = new CustomizedThreadPoolExecutor(uploadMaxThreadPoolCount, uploadMaxRecordsCountPerThreadPool,uploadMaxThreadExecCount, "PACKET UPLOADER", true);
                 Timer uploaderTimer = new Timer("Uploading Packet");
@@ -307,6 +305,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     @SneakyThrows
                     @Override
                     public void run() {
+                        String packetId=null;
                         try {
                             if(!uploadProcessStarted) {
                                 uploadProcessStarted = true;
@@ -324,6 +323,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                     ByteArrayInputStream bis = new ByteArrayInputStream(clientCryptoFacade.getClientSecurity().isTPMInstance() ? clientCryptoFacade.decrypt(Base64.getDecoder().decode(packetTracker.getRequest())) : Base64.getDecoder().decode(packetTracker.getRequest()));
                                     ObjectInputStream is = new ObjectInputStream(bis);
                                     PacketUploadDTO uploadDTO = (PacketUploadDTO) is.readObject();
+                                    packetId = uploadDTO.getPacketId();
                                     LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Uploading Packet for " + (new Gson()).toJson(uploadDTO));
 
                                     ThreadUploadController controller = new ThreadUploadController();
@@ -355,16 +355,16 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                             if(uploadExector.getCurrentPendingCount() <= 0)
                                 uploadProcessStarted = false;
                         } catch (Exception e) {
-                            uploadProcessStarted = false;
-                            e.printStackTrace();
-                            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Response : " + e.getMessage() + ExceptionUtils.getStackTrace(e));
+                            if(uploadExector.getCurrentPendingCount() <= 0)
+                                uploadProcessStarted = false;
+                            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Error for Packet Id : " + packetId + " - " + e.getMessage() + ExceptionUtils.getStackTrace(e));
                         }
                     }
                 }, 0, 5000L);
             }
 
             if(!enableOnlyPacketUploader)
-                dataBaseUtil.readDataFromDatabase(dbImportRequest, null, fieldsCategoryMap, DataProcessor);
+                dataReaderApiFactory.readData(dbImportRequest, null, fieldsCategoryMap, DataProcessor);
 
             do {
                 Thread.sleep(15000);
@@ -380,7 +380,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
         } catch (Exception e) {
           e.printStackTrace();
         } finally {
-            dataBaseUtil.closeConnection();
+            dataReaderApiFactory.disconnectDataReader();
             if(!IS_ONLY_FOR_QUALITY_CHECK)
                 trackerUtil.closeStatement();
 
@@ -533,6 +533,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                         packetDto.setAdditionalInfoReqId(null);
                         packetDto.setMetaInfo(null);
                         packetDto.setOfflineMode(false);
+                        packetDto.setId(registrationId);
 
                         if (!IS_ONLY_FOR_QUALITY_CHECK && docDetails.size() > 0) {
                             packetDto.setDocuments(packetCreator.setDocuments(docDetails, dbImportRequest.getIgnoreIdSchemaFields(), metaInfo, demoDetails));
@@ -558,72 +559,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                         csvMap.put("ref_id", demoDetails.get(trackerColumn).toString());
                         qualityWriterFactory.writeQualityData(csvMap);
 
-                        if (!IS_ONLY_FOR_QUALITY_CHECK) {
-                            packetDto.setId(registrationId);
-                            packetDto.setRefId(ConfigUtil.getConfigUtil().getCenterId() + "_" + ConfigUtil.getConfigUtil().getMachineId());
-                            packetCreator.setMetaData(metaInfo, packetDto, dbImportRequest);
-                            packetDto.setMetaInfo(metaInfo);
-                            packetDto.setAudits(packetCreator.setAudits(packetDto.getId()));
-
-                            HashMap<String, Object> idSchema = commonUtil.getLatestIdSchema();
-                            packetDto.setSchemaJson(idSchema.get("schemaJson").toString());
-                            packetDto.setOfflineMode(true);
-
-                            List<PacketInfo> infoList = packetCreatorService.persistPacket(packetDto);
-                            PacketInfo info = infoList.get(0);
-
-                            trackerUtil.addTrackerLocalEntry(demoDetails.get(trackerColumn).toString(), info.getId(), TrackerStatus.CREATED, dbImportRequest.getProcess(), demoDetails, SESSION_KEY, GlobalConfig.getActivityName());
-
-                            Path identityFile = Paths.get(System.getProperty("user.dir"), "identity.json");
-
-                            if (identityFile.toFile().exists()) {
-                                PacketUploadDTO uploadDTO = new PacketUploadDTO();
-
-                                JSONParser parser = new JSONParser();
-                                JSONObject jsonObject = (JSONObject) parser.parse(IOUtils.toString(new FileInputStream(identityFile.toFile()), StandardCharsets.UTF_8));
-                                JSONObject identityJsonObject = (JSONObject) jsonObject.get("identity");
-                                for (Object entry : identityJsonObject.keySet()) {
-                                    String val = (String) ((JSONObject) identityJsonObject.get(entry)).get("value");
-                                    if (val.contains(",")) {
-                                        String[] valList = val.split(",");
-                                        String fullVal = null;
-
-                                        for (String val2 : valList) {
-                                            if (fullVal == null) {
-                                                fullVal = (String) demoDetails.get(val2);
-                                            } else {
-                                                fullVal += " " + demoDetails.get(val2);
-                                            }
-                                        }
-                                        uploadDTO.setValue(entry.toString(), fullVal);
-                                    } else {
-                                        uploadDTO.setValue(entry.toString(), demoDetails.get(entry));
-                                    }
-                                }
-
-                                Path path = Paths.get(System.getProperty("user.dir"), "home/" + packetUploadPath);
-                                uploadDTO.setPacketPath(path.toAbsolutePath().toString());
-                                uploadDTO.setRegistrationType(dbImportRequest.getProcess());
-                                uploadDTO.setPacketId(info.getId());
-                                uploadDTO.setRegistrationId(info.getId().split("-")[0]);
-                                uploadDTO.setLangCode(primaryLanguage);
-
-                                if (enablePaccketUploader) {
-  //                                  packetUploaderService.syncPacket(uploadList, ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId(), response);
-                                    trackerUtil.addTrackerLocalEntry(demoDetails.get(trackerColumn).toString(), info.getId(), TrackerStatus.READY_TO_SYNC, null, uploadDTO, SESSION_KEY, GlobalConfig.getActivityName());
-  //                                  packetUploaderService.uploadSyncedPacket(uploadList, response);
-                                } else {
-                                    LOGGER.warn("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Uploader Disabled : " + demoDetails.get(trackerColumn).toString());
-                                    ResultDto resultDto = new ResultDto();
-                                    resultDto.setRegNo(info.getId());
-                                    resultDto.setRefId(demoDetails.get(trackerColumn).toString());
-                                    resultDto.setComments("Packet Created");
-                                    resultDto.setStatus(TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
-                                    setter.setResult(resultDto);
-                                }
-                            } else {
-                                throw new Exception("Identity Mapping JSON File missing");
-                            }
+                        if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) && !IS_ONLY_FOR_QUALITY_CHECK) {
+                            dataExporterApiFactory.export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter);
                         } else {
                             ResultDto resultDto = new ResultDto();
                             resultDto.setRegNo(null);

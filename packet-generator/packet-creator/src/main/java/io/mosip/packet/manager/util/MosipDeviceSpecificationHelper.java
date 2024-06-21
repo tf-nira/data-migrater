@@ -1,10 +1,7 @@
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.manager.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.mosip.kernel.core.exception.ExceptionUtils;
 import io.mosip.kernel.core.logger.spi.Logger;
-import io.mosip.kernel.core.util.CryptoUtil;
-import io.mosip.kernel.core.util.DateUtils;
 import io.mosip.kernel.signature.constant.SignatureConstant;
 import io.mosip.kernel.signature.dto.JWTSignatureVerifyRequestDto;
 import io.mosip.kernel.signature.dto.JWTSignatureVerifyResponseDto;
@@ -13,18 +10,7 @@ import io.mosip.packet.core.constant.MDMError;
 import io.mosip.packet.core.constant.RegistrationConstants;
 
 import io.mosip.packet.core.constant.RegistrationExceptionConstants;
-import io.mosip.kernel.logger.logback.factory.Logfactory;
 import io.mosip.packet.core.logger.DataProcessLogger;
-import org.apache.http.Consts;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -32,13 +18,9 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID;
-import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_NAME;
 
 /**
  * All helper methods commons to spec implementations

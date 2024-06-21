@@ -1,4 +1,4 @@
-package io.mosip.packet.extractor.util;
+package io.mosip.packet.core.util.regclient;
 
 
 import java.io.SyncFailedException;
@@ -18,7 +18,6 @@ import io.mosip.packet.core.repository.*;
 import io.mosip.kernel.clientcrypto.util.ClientCryptoUtils;
 import org.json.JSONArray;
 import io.mosip.kernel.core.logger.spi.Logger;
-import io.mosip.kernel.logger.logback.factory.Logfactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;

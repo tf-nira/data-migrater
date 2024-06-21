@@ -15,6 +15,7 @@ import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.repository.PacketTrackerRepository;
 import io.mosip.packet.core.service.thread.*;
 import io.mosip.packet.core.util.TrackerUtil;
+import io.mosip.packet.core.util.regclient.ConfigUtil;
 import io.mosip.packet.uploader.service.PacketUploaderService;
 import lombok.SneakyThrows;
 import org.apache.commons.io.IOUtils;
@@ -34,7 +35,6 @@ import java.util.*;
 
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID;
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_NAME;
-import static io.mosip.packet.core.constant.GlobalConfig.*;
 
 @Component
 public class Reprocessor {
