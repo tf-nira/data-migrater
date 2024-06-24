@@ -8,5 +8,5 @@ import java.util.HashMap;
 
 public interface DataExporter {
     public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
-                         String trackerColumn, ResultSetter setter) throws Exception;
+                         String trackerColumn, ResultSetter setter, String trackerRefId, Long processStartTime) throws Exception;
 }

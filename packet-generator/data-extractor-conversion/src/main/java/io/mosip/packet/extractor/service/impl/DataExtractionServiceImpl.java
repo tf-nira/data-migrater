@@ -224,7 +224,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             dataReaderApiFactory.connectDataReader(dbImportRequest);
             IS_PACKET_CREATOR_OPERATION = true;
             Activity processorActivity = activity.getActivity(ActivityName.DATA_PROCESSOR.name());
-            CustomizedThreadPoolExecutor threadPool = new CustomizedThreadPoolExecutor(maxThreadPoolCount, maxRecordsCountPerThreadPool, maxThreadExecCount, processorActivity.getActivityName().getActivityName(), processorActivity.isMonitorRequired());
+            CustomizedThreadPoolExecutor threadPool = new CustomizedThreadPoolExecutor(maxThreadPoolCount, maxRecordsCountPerThreadPool, maxThreadExecCount, processorActivity.getActivityName().getActivityName(), processorActivity.isMonitorRequired(), ActivityName.DATA_EXPORTER);
 
             ResultSetter setter = new ResultSetter() {
                 @SneakyThrows
@@ -300,7 +300,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
             Date startTime = new Date();
             if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
-                NO_OF_PACKETS_UPLOADED = 0L;
                 Activity exportActivity = activity.getActivity(ActivityName.DATA_EXPORTER.name());
                 CustomizedThreadPoolExecutor uploadExector = new CustomizedThreadPoolExecutor(uploadMaxThreadPoolCount, uploadMaxRecordsCountPerThreadPool,uploadMaxThreadExecCount, exportActivity.getActivityName().getActivityName(), exportActivity.isMonitorRequired());
                 Timer uploaderTimer = new Timer("Uploading Packet");
@@ -343,14 +342,13 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                             packetUploaderService.syncPacket(uploadList, ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId(), response);
                                             trackerUtil.addTrackerLocalEntry(packetTracker.getRefId(), uploadDTO.getPacketId(), TrackerStatus.SYNCED, null, uploadList, SESSION_KEY, GlobalConfig.getActivityName());
                                             packetUploaderService.uploadSyncedPacket(uploadList, response);
-                                            NO_OF_PACKETS_UPLOADED++;
+                                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Response for " + packetTracker.getRefId() + " : " + (new Gson()).toJson(response));
                                             ResultDto resultDto = new ResultDto();
                                             resultDto.setRegNo(uploadDTO.getPacketId());
                                             resultDto.setRefId(packetTracker.getRefId());
                                             resultDto.setComments((new Gson()).toJson(response));
                                             resultDto.setStatus(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) ? TrackerStatus.PROCESSED : TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
                                             setter.setResult(resultDto);
-                                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Response : " + (new Gson()).toJson(response));
                                         }
                                     });
                                     uploadExector.ExecuteTask(controller);
@@ -544,28 +542,28 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                             packetDto.setDocuments(packetCreator.setDocuments(docDetails, dbImportRequest.getIgnoreIdSchemaFields(), metaInfo, demoDetails));
                         }
                         Long timeDifference = System.nanoTime()-startTime;
-                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "After Completion of Document Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Document Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                         if (!IS_ONLY_FOR_QUALITY_CHECK && demoDetails.size() > 0) {
                             packetDto.setFields(packetCreator.setDemographic(demoDetails, (bioDetails.size() > 0), dbImportRequest.getIgnoreIdSchemaFields()));
                         }
 
                         timeDifference = System.nanoTime()-startTime;
-                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "After Completion of Demographic Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Demographic Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                         if (bioDetails.size() > 0) {
-                            packetDto.setBiometrics(packetCreator.setBiometrics(bioDetails, metaInfo, csvMap, demoDetails.get(trackerColumn).toString()));
+                            packetDto.setBiometrics(packetCreator.setBiometrics(bioDetails, metaInfo, csvMap, demoDetails.get(trackerColumn).toString(), startTime));
                         }
 
                         timeDifference = System.nanoTime()-startTime;
-                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "After Completion of Biometric Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Biometric Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                         csvMap.put("reg_no", registrationId);
                         csvMap.put("ref_id", demoDetails.get(trackerColumn).toString());
                         qualityWriterFactory.writeQualityData(csvMap);
 
                         if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) && !IS_ONLY_FOR_QUALITY_CHECK) {
-                            dataExporterApiFactory.export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter);
+                            dataExporterApiFactory.export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter, refId, startTime);
                         } else {
                             ResultDto resultDto = new ResultDto();
                             resultDto.setRegNo(null);

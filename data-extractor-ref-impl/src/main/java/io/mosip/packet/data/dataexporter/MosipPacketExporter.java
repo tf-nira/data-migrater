@@ -30,6 +30,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static io.mosip.packet.core.constant.GlobalConfig.SESSION_KEY;
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID;
@@ -59,18 +60,27 @@ public class MosipPacketExporter implements DataExporter {
 
     @Override
     public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
-                         String trackerColumn, ResultSetter setter) throws Exception {
+                         String trackerColumn, ResultSetter setter, String trackerRefId, Long processStartTime) throws Exception {
         packetDto.setRefId(ConfigUtil.getConfigUtil().getCenterId() + "_" + ConfigUtil.getConfigUtil().getMachineId());
         packetCreator.setMetaData(metaInfo, packetDto, dbImportRequest);
         packetDto.setMetaInfo(metaInfo);
         packetDto.setAudits(packetCreator.setAudits(packetDto.getId()));
 
+        Long timeDifference = System.nanoTime()-processStartTime;
+        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Audit Log set Process " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+
         HashMap<String, Object> idSchema = commonUtil.getLatestIdSchema();
         packetDto.setSchemaJson(idSchema.get("schemaJson").toString());
         packetDto.setOfflineMode(true);
 
+        timeDifference = System.nanoTime()-processStartTime;
+        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Fetching Latest ID Schema " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+
         List<PacketInfo> infoList = packetCreatorService.persistPacket(packetDto);
         PacketInfo info = infoList.get(0);
+
+        timeDifference = System.nanoTime()-processStartTime;
+        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Packet Creation in Local Storage " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
         trackerUtil.addTrackerLocalEntry(demoDetails.get(trackerColumn).toString(), info.getId(), TrackerStatus.CREATED, dbImportRequest.getProcess(), demoDetails, SESSION_KEY, GlobalConfig.getActivityName());
 
@@ -108,6 +118,9 @@ public class MosipPacketExporter implements DataExporter {
             uploadDTO.setRegistrationId(info.getId().split("-")[0]);
             uploadDTO.setLangCode(primaryLanguage);
 
+            timeDifference = System.nanoTime()-processStartTime;
+            LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Data Process Function " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+
             if (GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                 //                                  packetUploaderService.syncPacket(uploadList, ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId(), response);
                 trackerUtil.addTrackerLocalEntry(demoDetails.get(trackerColumn).toString(), info.getId(), TrackerStatus.READY_TO_SYNC, null, uploadDTO, SESSION_KEY, GlobalConfig.getActivityName());
@@ -120,6 +133,9 @@ public class MosipPacketExporter implements DataExporter {
                 resultDto.setComments("Packet Created");
                 resultDto.setStatus(TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
                 setter.setResult(resultDto);
+                timeDifference = System.nanoTime()-processStartTime;
+                LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to Stored Packet Information in Local Table for Export OPeration " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+
             }
         } else {
             throw new Exception("Identity Mapping JSON File missing");

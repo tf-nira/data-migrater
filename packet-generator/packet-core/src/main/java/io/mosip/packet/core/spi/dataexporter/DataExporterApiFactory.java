@@ -7,6 +7,5 @@ import io.mosip.packet.core.service.thread.ResultSetter;
 import java.util.HashMap;
 
 public interface DataExporterApiFactory {
-    public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
-                         String trackerColumn, ResultSetter setter) throws Exception;
+    public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails, String trackerColumn, ResultSetter setter, String trackerRefId, Long processStartTime) throws Exception;
 }

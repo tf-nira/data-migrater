@@ -1,6 +1,7 @@
 package io.mosip.packet.core.service.thread;
 
 import io.mosip.kernel.core.logger.spi.Logger;
+import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.util.FixedListQueue;
 
@@ -45,6 +46,8 @@ public class CustomizedThreadPoolExecutor {
     private FixedListQueue<Long> timeConsumptionPerMin = new FixedListQueue<>(100);
     private FixedListQueue<Integer> countOfProcessPerMin = new FixedListQueue<>(100);
     private boolean isInputProcessCompleted = false;
+    private boolean isCompletionCountRequired = false;
+    private String trackActivityForCompletion = null;
 
     public long getTotalCompletedTaskCount() {
         return totalCompletedTaskCount;
@@ -66,13 +69,24 @@ public class CustomizedThreadPoolExecutor {
     };
 
     public CustomizedThreadPoolExecutor(Integer threadPoolCount, Integer maxThreadCount, Integer maxThreadExecCount, String poolName) {
-        this(threadPoolCount, maxThreadCount, maxThreadExecCount, poolName, true);
+        this(threadPoolCount, maxThreadCount, maxThreadExecCount, poolName, true, null);
     }
 
     public CustomizedThreadPoolExecutor(Integer threadPoolCount, Integer maxThreadCount, Integer maxThreadExecCount, String poolName, Boolean monitorRequired) {
+        this(threadPoolCount, maxThreadCount, maxThreadExecCount, poolName, monitorRequired, null);
+    }
+
+    public CustomizedThreadPoolExecutor(Integer threadPoolCount, Integer maxThreadCount, Integer maxThreadExecCount, String poolName, Boolean monitorRequired, ActivityName trackActivity) {
         this.NAME = poolName;
         this.maxThreadCount = maxThreadCount;
         this.MAX_THREAD_EXE_COUNT = maxThreadExecCount;
+
+        if(trackActivity != null) {
+            this.isCompletionCountRequired = true;
+            this.trackActivityForCompletion = trackActivity.getActivityName();
+            COMPLETION_COUNT_MAP.put(this.trackActivityForCompletion, Long.valueOf(0L));
+        }
+
         for(int i = 1; i <= threadPoolCount; i++)
             poolMap.add((ThreadPoolExecutor) Executors.newFixedThreadPool(MAX_THREAD_EXE_COUNT));
 
@@ -207,10 +221,9 @@ public class CustomizedThreadPoolExecutor {
                             remainingMinutes = (int) (totalTimeRequired % 60);
                         }
 
-                        System.out.println("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (NAME.equals("DATA PROCESSOR") ? ", No of Packets Uploaded : " + NO_OF_PACKETS_UPLOADED : ""));
-                        LOGGER.info("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (NAME.equals("DATA PROCESSOR") ? ", No of Packets Uploaded : " + NO_OF_PACKETS_UPLOADED : ""));
-                    }
-                } catch (Exception e) {}
+                        System.out.println("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (isCompletionCountRequired ? ", No of "+ trackActivityForCompletion + " Completed : " +  COMPLETION_COUNT_MAP.get(trackActivityForCompletion) : ""));
+                        LOGGER.info("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (isCompletionCountRequired ? ", No of "+ trackActivityForCompletion + " Completed : " + COMPLETION_COUNT_MAP.get(trackActivityForCompletion) : ""));
+                    }    } catch (Exception e) {}
             }
         }, 0, 90000L);
 
@@ -230,6 +243,12 @@ public class CustomizedThreadPoolExecutor {
                             @Override
                             public void onSuccess() {
                                 currentPendingCount--;
+
+                                if(COMPLETION_COUNT_MAP.containsKey(NAME)) {
+                                    Long count = COMPLETION_COUNT_MAP.get(NAME);
+                                    count++;
+                                    COMPLETION_COUNT_MAP.put(NAME, count);
+                                }
                             }
 
                             @Override

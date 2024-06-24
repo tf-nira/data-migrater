@@ -13,7 +13,7 @@ import java.util.HashMap;
 public class IdrepoUploader implements DataExporter {
     @Override
     public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
-                         String trackerColumn, ResultSetter setter) throws Exception {
+                         String trackerColumn, ResultSetter setter, String trackerRefId, Long startTime) throws Exception {
         System.out.println("Entering Idrepo Data " + (new Gson()).toJson(packetDto));
         return null;
     }

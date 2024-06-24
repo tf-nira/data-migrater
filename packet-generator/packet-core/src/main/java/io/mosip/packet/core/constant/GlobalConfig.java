@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Component
@@ -39,7 +41,7 @@ public class GlobalConfig {
 
     public static Boolean IS_PACKET_CREATOR_OPERATION = false;
 
-    public static Long NO_OF_PACKETS_UPLOADED = 0L;
+    public static Map<String, Long> COMPLETION_COUNT_MAP = new ConcurrentHashMap<>();
 
     public static List<CustomizedThreadPoolExecutor> THREAD_POOL_EXECUTOR_LIST = new ArrayList<>();
 

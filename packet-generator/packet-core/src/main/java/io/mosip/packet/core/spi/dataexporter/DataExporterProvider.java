@@ -38,7 +38,7 @@ public class DataExporterProvider implements DataExporterApiFactory {
 
     @Override
     public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
-                         String trackerColumn, ResultSetter setter) throws Exception {
-        return getExporter().export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter);
+                         String trackerColumn, ResultSetter setter, String trackerRefid, Long startTime) throws Exception {
+        return getExporter().export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter, trackerRefid, startTime);
     }
 }
