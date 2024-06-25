@@ -301,6 +301,9 @@ public class DataBaseUtil implements DataReader {
 
                             if ((processPercentage > 0.05 && processPercentage != 0) || (processPercentage == 0 && OFFSET_VALUE > 0 && oneTimeCheckForZeroOffset) || threadPool.getCurrentPendingCount() > 0) {
                             } else {
+                                if(IS_TRACKER_REQUIRED)
+                                    trackerUtil.closeStatement();
+
                                 OFFSET_VALUE = trackerUtil.getDatabaseOffset();
                                 if(OFFSET_VALUE == null)
                                     OFFSET_VALUE = 0l;
