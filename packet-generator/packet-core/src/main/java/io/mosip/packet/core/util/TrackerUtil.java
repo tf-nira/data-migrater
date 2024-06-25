@@ -303,7 +303,7 @@ public class TrackerUtil {
                 if(refList.contains(value.toString()))
                     return true;
 
-                statement = conn.prepareStatement(String.format("SELECT 1 FROM %s WHERE REF_ID = ? AND ACTIVITY = ? AND SESSION_KEY = ?", TRACKER_TABLE_NAME));
+                statement = conn.prepareStatement(String.format("SELECT 1 FROM %s WHERE REF_ID = ? AND ACTIVITY = ? AND SESSION_KEY = ? AND STATUS != 'FAILED'", TRACKER_TABLE_NAME));
                 statement.setString(1, value.toString());
                 statement.setString(2, activity);
                 statement.setString(3, SESSION_KEY);
@@ -368,8 +368,9 @@ public class TrackerUtil {
                 sb.append(addColumn("UPD_DTIMES", Timestamp.class, 100, false, dbTypes));
                 sb.append(");");
 
-                sb.append(String.format("ALTER TABLE %s ADD PRIMARY KEY (SESSION_KEY, REF_ID);", TRACKER_TABLE_NAME));
-                sb.append(String.format("CREATE INDEX IX_SEARCH ON  %s (REF_ID, ACTIVITY, SESSION_KEY);", TRACKER_TABLE_NAME));
+                sb.append(String.format("ALTER TABLE %s ADD PRIMARY KEY (SESSION_KEY, REF_ID, STATUS);", TRACKER_TABLE_NAME));
+                sb.append(String.format("CREATE INDEX IX_SEARCH_1 ON  %s (REF_ID, ACTIVITY, SESSION_KEY);", TRACKER_TABLE_NAME));
+                sb.append(String.format("CREATE INDEX IX_SEARCH_2 ON  %s (REF_ID, ACTIVITY, SESSION_KEY, STATUS);", TRACKER_TABLE_NAME));
             } else {
                 sb.append(String.format("CREATE TABLE %s (", OFFSET_TRACKER_TABLE_NAME));
                 sb.append(addColumn("SESSION_KEY", String.class, 100, true, dbTypes) + ",");
