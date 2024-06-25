@@ -552,7 +552,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Demographic Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                         if (bioDetails.size() > 0) {
-                            packetDto.setBiometrics(packetCreator.setBiometrics(bioDetails, metaInfo, csvMap, demoDetails.get(trackerColumn).toString(), startTime));
+                            packetDto.setBiometrics(packetCreator.setBiometrics(bioDetails, metaInfo, csvMap, refId, startTime));
                         }
 
                         timeDifference = System.nanoTime()-startTime;

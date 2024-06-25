@@ -225,7 +225,7 @@ public class CustomizedThreadPoolExecutor {
                         LOGGER.info("Pool Name : " + NAME + " Avg Count per Min.: " + avgCount + " Avg Time per Record : " + TimeUnit.SECONDS.convert(avgTime, TimeUnit.NANOSECONDS) + "S  Estimate Time of Completion : " + totalDays + "D " + totalHours + "H " + remainingMinutes + "M" +"  Total Records for Process : " + TOTAL_RECORDS_FOR_PROCESS + " Failed in Previous Batch : " + TOTAL_FAILED_RECORDS + "  Total Task : " + (totalTaskCount +totalCount)  + ", Active Task : " + activeCount + ", Completed Task : " + completedCount + ", Failed Task : " + failedRecordCount + (isCompletionCountRequired ? ", No of "+ trackActivityForCompletion + " Completed : " + COMPLETION_COUNT_MAP.get(trackActivityForCompletion) : ""));
                     }    } catch (Exception e) {}
             }
-        }, 0, 90000L);
+        }, 0, 120000L);
 
         THREAD_POOL_EXECUTOR_LIST.add(this);
     }

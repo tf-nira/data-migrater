@@ -53,7 +53,7 @@ public class CommonUtil {
     @Getter
     private List<String> nonIdSchemaFieldsMap;
 
-    public String generateRegistrationId(String centerId, String machineId) {
+    public synchronized String generateRegistrationId(String centerId, String machineId) {
         return (String) ridGenerator.generateId(centerId, machineId);
     }
 

@@ -4,7 +4,8 @@ public enum LoginType {
     PMS("pms"),
     REGPROC("regproc"),
     REGISTRATION("reg"),
-    USER("user");
+    USER("user"),
+    IDREPO("idrepo");
 
     private String loginCode;
 

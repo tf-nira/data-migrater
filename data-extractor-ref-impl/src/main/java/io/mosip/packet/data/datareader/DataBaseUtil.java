@@ -301,7 +301,10 @@ public class DataBaseUtil implements DataReader {
 
                             if ((processPercentage > 0.05 && processPercentage != 0) || (processPercentage == 0 && OFFSET_VALUE > 0 && oneTimeCheckForZeroOffset) || threadPool.getCurrentPendingCount() > 0) {
                             } else {
-                                OFFSET_VALUE = trackerUtil.getDatabaseOffset() == null ? 0 : trackerUtil.getDatabaseOffset();
+                                OFFSET_VALUE = trackerUtil.getDatabaseOffset();
+                                if(OFFSET_VALUE == null)
+                                    OFFSET_VALUE = 0l;
+
                                 List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
                                 Collections.sort(tableRequestDtoList);
                                 TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
