@@ -324,6 +324,7 @@ public class DataBaseUtil implements DataReader {
                                     LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Cancelling Database Reader since No Data" + scrollableResultSet.getFetchSize());
                                     dataReader.cancel();
                                     threadPool.setInputProcessCompleted(true);
+                                    trackerUtil.updateDatabaseOffset(OFFSET_VALUE);
                                     IS_DATABASE_READ_OPERATION = false;
                                 }
 
