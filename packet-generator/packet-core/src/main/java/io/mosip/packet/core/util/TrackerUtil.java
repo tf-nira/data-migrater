@@ -37,7 +37,7 @@ public class TrackerUtil {
     @Value("${mosip.packet.creator.tracking.batch.size:1}")
     private int batchLimit;
 
-    @Value("${mosip.packet.creator.tracking.batch.connection.reset.count:100}")
+    @Value("${mosip.packet.creator.tracking.batch.connection.reset.count:1000}")
     private int batchConResetCount;
 
     private int batchSize = 0;
@@ -163,14 +163,14 @@ public class TrackerUtil {
                     refList.clear();
 
                     if(connSize > batchConResetCount) {
-                        isConnCreation=true;
-                        LOGGER.info("TrackerUtil Closing Connection");
-                        conn.close();
-                        conn=null;
-                        this.initialize();
-                        LOGGER.info("TrackerUtil Starting Connection");
-                        isConnCreation=false;
-                        connSize=1;
+                    isConnCreation=true;
+                    LOGGER.info("TrackerUtil Closing Connection");
+                    conn.close();
+                    conn=null;
+                    this.initialize();
+                    LOGGER.info("TrackerUtil Starting Connection");
+                    isConnCreation=false;
+                    connSize=1;
                     }
                 }
 
@@ -210,7 +210,7 @@ public class TrackerUtil {
         }
     }
 
-    public synchronized void updateDatabaseOffset(Long offset) throws SQLException {
+    public synchronized void updateDatabaseOffset(Long offset) throws SQLException, InterruptedException {
         if(IS_TRACKER_REQUIRED) {
             PreparedStatement preparedStatement = null;
             DBTypes dbType = Enum.valueOf(DBTypes.class, env.getProperty("spring.datasource.tracker.dbtype"));
@@ -222,6 +222,10 @@ public class TrackerUtil {
                 valueMap.put("SESSION_ID", SESSION_KEY);
                 valueMap.put("VALUE", offset.toString());
                 valueMap.put("IN_USE", "N");
+
+                while(isConnCreation)
+                    Thread.sleep(2000);
+
                 preparedStatement = conn.prepareStatement(queryFormatter.queryFormatter(query, valueMap));
                 preparedStatement.execute();
             } finally {
@@ -238,6 +242,9 @@ public class TrackerUtil {
             DBTypes dbType = Enum.valueOf(DBTypes.class, env.getProperty("spring.datasource.tracker.dbtype"));
 
             try {
+                while(isConnCreation)
+                    Thread.sleep(2000);
+
                 statement = conn.createStatement();
                 resultSet = statement.executeQuery("SELECT OFFSET_VALUE, IN_USE FROM " + OFFSET_TRACKER_TABLE_NAME + " WHERE SESSION_KEY = '" + SESSION_KEY + "'");
                 if(resultSet.next()) {
@@ -296,12 +303,12 @@ public class TrackerUtil {
             PreparedStatement statement = null;
             ResultSet resultSet = null;
 
-            while(isConnCreation)
-                Thread.sleep(10000);
-
             try {
                 if(refList.contains(value.toString()))
                     return true;
+
+                while(isConnCreation)
+                    Thread.sleep(2000);
 
                 statement = conn.prepareStatement(String.format("SELECT 1 FROM %s WHERE REF_ID = ? AND ACTIVITY = ? AND SESSION_KEY = ? AND STATUS != 'FAILED'", TRACKER_TABLE_NAME));
                 statement.setString(1, value.toString());
