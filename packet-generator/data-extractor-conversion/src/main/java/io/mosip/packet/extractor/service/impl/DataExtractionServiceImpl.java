@@ -11,6 +11,8 @@ import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.*;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
+import io.mosip.packet.core.dto.DataPostProcessorResponseDto;
+import io.mosip.packet.core.dto.DataProcessorResponseDto;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.biosdk.BioSDKRequestWrapper;
@@ -18,8 +20,6 @@ import io.mosip.packet.core.dto.dbimport.*;
 import io.mosip.packet.core.dto.packet.PacketRequest;
 import io.mosip.packet.core.dto.packet.RegistrationIdRequest;
 import io.mosip.packet.core.dto.tracker.TrackerRequestDto;
-import io.mosip.packet.core.dto.upload.PacketUploadDTO;
-import io.mosip.packet.core.dto.upload.PacketUploadResponseDTO;
 import io.mosip.packet.core.entity.PacketTracker;
 import io.mosip.packet.core.exception.ExceptionUtils;
 import io.mosip.packet.core.logger.DataProcessLogger;
@@ -27,18 +27,16 @@ import io.mosip.packet.core.repository.PacketTrackerRepository;
 import io.mosip.packet.core.service.DataRestClientService;
 import io.mosip.packet.core.service.thread.*;
 import io.mosip.packet.core.spi.BioConvertorApiFactory;
-import io.mosip.packet.core.spi.dataexporter.DataExporterApiFactory;
-import io.mosip.packet.core.spi.datareader.DataReaderApiFactory;
 import io.mosip.packet.core.spi.QualityWriterFactory;
+import io.mosip.packet.core.spi.dataexporter.DataExporterApiFactory;
+import io.mosip.packet.core.spi.datapostprocessor.DataPostProcessorApiFactory;
+import io.mosip.packet.core.spi.dataprocessor.DataProcessorApiFactory;
+import io.mosip.packet.core.spi.datareader.DataReaderApiFactory;
 import io.mosip.packet.core.util.*;
 import io.mosip.packet.extractor.service.DataExtractionService;
-import io.mosip.packet.core.util.regclient.ConfigUtil;
-import io.mosip.packet.manager.util.PacketCreator;
-import io.mosip.packet.extractor.util.TableDataMapperUtil;
 import io.mosip.packet.extractor.util.ValidationUtil;
-import io.mosip.packet.manager.service.PacketCreatorService;
+import io.mosip.packet.manager.util.PacketCreator;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
-import io.mosip.packet.uploader.service.PacketUploaderService;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,24 +58,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     private static final Logger LOGGER = DataProcessLogger.getLogger(DataExtractionServiceImpl.class);
 
-    @Value("${packet.manager.account.name}")
-    private String packetUploadPath;
-
-    @Value("${mosip.selected.languages}")
-    private String primaryLanguage;
-
-    @Value("${mosip.packet.creater.source}")
-    private String source;
-
-    @Value("${mosip.packet.creater.max-threadpool-count:1}")
-    private Integer maxThreadPoolCount;
-
-    @Value("${mosip.packet.creater.max-records-process-per-threadpool:100}")
-    private Integer maxRecordsCountPerThreadPool;
-
-    @Value("${mosip.packet.creater.max-thread-execution-count:100}")
-    private Integer maxThreadExecCount;
-
     @Value("${mosip.packet.upload.max-threadpool-count:1}")
     private Integer uploadMaxThreadPoolCount;
 
@@ -86,9 +66,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Value("${mosip.packet.upload.max-thread-execution-count:5}")
     private Integer uploadMaxThreadExecCount;
-
-    @Value("${mosip.extractor.application.id.column:}")
-    private String applicationIdColumn;
 
     @Value("${mosip.packet.uploader.enable.only.packet.upload:false}")
     private boolean enableOnlyPacketUploader;
@@ -101,15 +78,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Autowired
     private CommonUtil commonUtil;
-
-    @Autowired
-    private TableDataMapperUtil tableDataMapperUtil;
-
-    @Autowired
-    PacketCreatorService packetCreatorService;
-
-    @Autowired
-    PacketUploaderService packetUploaderService;
 
     @Autowired
     private PacketCreator packetCreator;
@@ -130,9 +98,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     private DataRestClientService dataRestClientService;
 
     private boolean uploadProcessStarted = false;
+    private boolean isUploadInProgress = false;
 
     private Map<String, HashMap<String, String>> fieldsCategoryMap = new HashMap<>();
-    private ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     private BioConvertorApiFactory bioConvertorApiFactory;
@@ -142,6 +110,12 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Autowired
     private DataReaderApiFactory dataReaderApiFactory;
+
+    @Autowired
+    private DataProcessorApiFactory dataProcessorApiFactory;
+
+    @Autowired
+    private DataPostProcessorApiFactory dataPostProcessorApiFactory;
 
     @Autowired
     private DataExporterApiFactory dataExporterApiFactory;
@@ -203,28 +177,25 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public PacketCreatorResponse createPacketFromDataBase(DBImportRequest dbImportRequest) throws Exception {
         LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionServiceImpl :: createPacketFromDataBase():: entry");
         TIMECONSUPTIONQUEUE = new FixedListQueue<Long>(100);
-        mockDeviceUtil.resetDevices();
-        mockDeviceUtil.initDeviceHelpers();
         PacketCreatorResponse packetCreatorResponse = new PacketCreatorResponse();
         packetCreatorResponse.setRID(new ArrayList<>());
         PacketDto packetDto = null;
         TOTAL_RECORDS_FOR_PROCESS=0L;
-        //Timer processor = null;
-        //Long DELAY_SECONDS = 10000L;
-
 
         try {
-            commonUtil.initialize(dbImportRequest);
+            Date startTime = new Date();
+            IS_PACKET_CREATOR_OPERATION = true;
             List<ValidatorEnum> enumList = new ArrayList<>();
             enumList.add(ValidatorEnum.ID_SCHEMA_VALIDATOR);
             enumList.add(ValidatorEnum.FILTER_VALIDATOR);
             enumList.add(ValidatorEnum.BIOMETRIC_FORMAT_VALIDATOR);
+
+            mockDeviceUtil.resetDevices();
+            mockDeviceUtil.initDeviceHelpers();
+            commonUtil.initialize(dbImportRequest);
             validationUtil.validateRequest(dbImportRequest, enumList);
             populateTableFields(dbImportRequest);
             dataReaderApiFactory.connectDataReader(dbImportRequest);
-            IS_PACKET_CREATOR_OPERATION = true;
-            Activity processorActivity = activity.getActivity(ActivityName.DATA_PROCESSOR.name());
-            CustomizedThreadPoolExecutor threadPool = new CustomizedThreadPoolExecutor(maxThreadPoolCount, maxRecordsCountPerThreadPool, maxThreadExecCount, processorActivity.getActivityName().getActivityName(), processorActivity.isMonitorRequired(), ActivityName.DATA_EXPORTER);
 
             ResultSetter setter = new ResultSetter() {
                 @SneakyThrows
@@ -250,55 +221,29 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 @SneakyThrows
                 @Override
                 public void setResult(Object obj) {
-                    ThreadDataProcessController threadDataProcessController = new ThreadDataProcessController();
-                    threadDataProcessController.setSetter(setter);
                     Map<FieldCategory, HashMap<String, Object>> dataHashMap = (Map<FieldCategory, HashMap<String, Object>>) obj;
-                    if(processPacket(dbImportRequest, packetCreatorResponse, threadDataProcessController, dataHashMap))
-                        threadPool.ExecuteTask(threadDataProcessController);
-                    trackerUtil.addTrackerLocalEntry(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()).toString(), null, TrackerStatus.STARTED, dbImportRequest.getProcess(), null, SESSION_KEY, getActivityName());
+                    DataProcessorResponseDto processObject = dataProcessorApiFactory.process(dbImportRequest, dataHashMap, setter);
+
+                    if(!IS_ONLY_FOR_QUALITY_CHECK) {
+                        if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_POST_PROCESSOR)) {
+                            DataPostProcessorResponseDto postProcessorResponseDto = dataPostProcessorApiFactory.postProcess(processObject, setter, startTime.getTime());
+                        }
+                    } else {
+                        ResultDto resultDto = new ResultDto();
+                        resultDto.setRegNo(null);
+                        resultDto.setRefId(processObject.getRefId());
+                        resultDto.setComments("Quality Calculation Completed Successfully");
+                        resultDto.setStatus(TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
+                        setter.setResult(resultDto);
+                    }
+                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + processObject.getRefId()+ " Process Ended");
+                    Long endTime = System.nanoTime();
+                    Long timeDifference = endTime-startTime.getTime();
+                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + processObject.getRefId() + " Time taken to complete " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    TIMECONSUPTIONQUEUE.add(timeDifference);
                 }
             };
 
- /*           processor = new Timer("Packet_Processor");
-            processor.schedule(new TimerTask() {
-                @SneakyThrows
-                @Override
-                public void run() {
-                    List<String> list = new ArrayList<>();
-                    list.add(TrackerStatus.QUEUED.toString());
-                    List<PacketTracker> packetList =  packetTrackerRepository.findByStatusIn(list);
-                    System.out.println("No of Records Present" + packetList.size());
-
-                    if(!backendProcess && threadPool.isBatchAcceptRequest()) {
-                        System.out.println("Batch Accepting for Process Records");
-                        backendProcess = true;
-
-                        if(packetList.size() > 0)
-                            for(PacketTracker tracker : packetList) {
-                                if(threadPool.isBatchAcceptRequest()) {
-                                    ByteArrayInputStream bis = new ByteArrayInputStream(clientCryptoFacade.getClientSecurity().isTPMInstance() ? clientCryptoFacade.decrypt(Base64.getDecoder().decode(tracker.getRequest())) : Base64.getDecoder().decode(tracker.getRequest()));
-                                    ObjectInputStream is = new ObjectInputStream(bis);
-                                    BaseThreadController baseThreadController = new BaseThreadController();
-                                    baseThreadController.setSetter(setter);
-
-                                    Map<FieldCategory, LinkedHashMap<String, Object>> dataHashMap = (Map<FieldCategory, LinkedHashMap<String, Object>>) is.readObject();
-                                    if(processPacket(dbImportRequest, packetCreatorResponse, baseThreadController, dataHashMap))
-                                        threadPool.ExecuteTask(baseThreadController);
-                                    trackerUtil.addTrackerLocalEntry(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()).toString(), null, TrackerStatus.STARTED, dbImportRequest.getProcess(), null, SESSION_KEY, getActivityName());
-                                } else {
-                                    System.out.println("System Queue full. Skipping");
-                                    break;
-                                }
-                            }
-                        else
-                            isRecordPresentForProcess = false;
-
-                        backendProcess = false;
-                    }
-                }
-            }, 0, DELAY_SECONDS); */
-
-            Date startTime = new Date();
             if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER)) {
                 Activity exportActivity = activity.getActivity(ActivityName.DATA_EXPORTER.name());
                 CustomizedThreadPoolExecutor uploadExector = new CustomizedThreadPoolExecutor(uploadMaxThreadPoolCount, uploadMaxRecordsCountPerThreadPool,uploadMaxThreadExecCount, exportActivity.getActivityName().getActivityName(), exportActivity.isMonitorRequired());
@@ -311,6 +256,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                         try {
                             if(!uploadProcessStarted) {
                                 uploadProcessStarted = true;
+                                isUploadInProgress = true;
                                 List<String> statusList = new ArrayList<>();
                                 statusList.add("READY_TO_SYNC");
                                 List<PacketTracker> trackerList =  packetTrackerRepository.findByStatusIn(statusList);
@@ -324,38 +270,29 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                 for(PacketTracker packetTracker : trackerList) {
                                     ByteArrayInputStream bis = new ByteArrayInputStream(clientCryptoFacade.getClientSecurity().isTPMInstance() ? clientCryptoFacade.decrypt(Base64.getDecoder().decode(packetTracker.getRequest())) : Base64.getDecoder().decode(packetTracker.getRequest()));
                                     ObjectInputStream is = new ObjectInputStream(bis);
-                                    PacketUploadDTO uploadDTO = (PacketUploadDTO) is.readObject();
+                                    DataPostProcessorResponseDto responseDto = (DataPostProcessorResponseDto) is.readObject();
                                     is.close();
                                     bis.close();
-                                    packetId = uploadDTO.getPacketId();
-                                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Uploading Packet for " + (new Gson()).toJson(uploadDTO));
+                                    packetId = responseDto.getRefId();
+                                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Data Export for " + (new Gson()).toJson(responseDto));
 
                                     ThreadUploadController controller = new ThreadUploadController();
-                                    controller.setResult(uploadDTO);
+                                    controller.setResult(responseDto);
                                     controller.setSetter(setter);
                                     controller.setProcessor(new ThreadUploadProcessor() {
                                         @Override
-                                        public void processData(ResultSetter setter, PacketUploadDTO result) throws Exception {
-                                            List<PacketUploadDTO> uploadList = new ArrayList<>();
-                                            uploadList.add(uploadDTO);
-                                            HashMap<String, PacketUploadResponseDTO> response = new HashMap<>();
-                                            packetUploaderService.syncPacket(uploadList, ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId(), response);
-                                            trackerUtil.addTrackerLocalEntry(packetTracker.getRefId(), uploadDTO.getPacketId(), TrackerStatus.SYNCED, null, uploadList, SESSION_KEY, GlobalConfig.getActivityName());
-                                            packetUploaderService.uploadSyncedPacket(uploadList, response);
-                                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Response for " + packetTracker.getRefId() + " : " + (new Gson()).toJson(response));
-                                            ResultDto resultDto = new ResultDto();
-                                            resultDto.setRegNo(uploadDTO.getPacketId());
-                                            resultDto.setRefId(packetTracker.getRefId());
-                                            resultDto.setComments((new Gson()).toJson(response));
-                                            resultDto.setStatus(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) ? TrackerStatus.PROCESSED : TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
-                                            setter.setResult(resultDto);
+                                        public void processData(ResultSetter setter, DataPostProcessorResponseDto result) throws Exception {
+                                            dataExporterApiFactory.export(result, (new Date()).getTime(), setter);
                                         }
                                     });
                                     uploadExector.ExecuteTask(controller);
                                 }
+                                isUploadInProgress = false;
                             }
 
-                            if(uploadExector.getCurrentPendingCount() <= 0)
+                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Upload Batch In-progress firs " + uploadExector.getCurrentPendingCount());
+                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Upload Batch Is-Upload-Inprogress " + isUploadInProgress);
+                            if(uploadExector.getCurrentPendingCount() <= 0 && !isUploadInProgress)
                                 uploadProcessStarted = false;
                         } catch (Exception e) {
                             if(uploadExector.getCurrentPendingCount() <= 0)
@@ -373,7 +310,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 Thread.sleep(15000);
 
                 if(!IS_DATABASE_READ_OPERATION) {
-                    threadPool.setInputProcessCompleted(true);
                     IS_PACKET_CREATOR_OPERATION = false;
                 }
             } while(!GlobalConfig.isThreadPoolCompleted());
@@ -491,107 +427,6 @@ public class DataExtractionServiceImpl implements DataExtractionService {
         } else {
             return bioConvertorApiFactory.convertImage(fieldFormatRequest, bioValue, fieldName);
         }
-    }
-
-    private boolean processPacket(DBImportRequest dbImportRequest, PacketCreatorResponse packetCreatorResponse, ThreadDataProcessController threadDataProcessController, Map<FieldCategory, HashMap<String, Object>> dataHashMap) throws Exception {
-        if ( dataHashMap != null) {
-            String registrationId = null;
-
-            if(!IS_ONLY_FOR_QUALITY_CHECK) {
-                if(applicationIdColumn != null && !applicationIdColumn.isEmpty()) {
-                    if(dataHashMap.get(FieldCategory.DEMO).containsKey(applicationIdColumn)) {
-                        registrationId = dataHashMap.get(FieldCategory.DEMO).get(applicationIdColumn).toString();
-                    } else {
-                        LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Application ID : " + applicationIdColumn + " not found in DataMap");
-                        throw new Exception("Application ID : " + applicationIdColumn + " not found in DataMap");
-                    }
-                } else {
-                    registrationId = commonUtil.generateRegistrationId(ConfigUtil.getConfigUtil().getCenterId(), ConfigUtil.getConfigUtil().getMachineId());
-                }
-            }
-
-            threadDataProcessController.setDataHashMap(dataHashMap);
-            threadDataProcessController.setRegistrationId(registrationId);
-            threadDataProcessController.setTrackerColumn(dbImportRequest.getTrackerInfo().getTrackerColumn());
-            threadDataProcessController.setProcessor(new ThreadProcessor() {
-                @Override
-                public void processData(ResultSetter setter, Map<FieldCategory, HashMap<String, Object>> dataHashMap, String registrationId, String trackerColumn) throws Exception {
-                    Long startTime = System.nanoTime();
-                    HashMap<String, Object> demoDetails = dataHashMap.get(FieldCategory.DEMO);
-                    HashMap<String, Object> bioDetails = dataHashMap.get(FieldCategory.BIO);
-                    HashMap<String, Object> docDetails = dataHashMap.get(FieldCategory.DOC);
-                    String refId = registrationId == null ? demoDetails.get(trackerColumn).toString() : registrationId;
-                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + refId + " Process Started");
-
-                    try {
-                        trackerUtil.addTrackerLocalEntry(demoDetails.get(trackerColumn).toString(), registrationId, TrackerStatus.STARTED, dbImportRequest.getProcess(), null, SESSION_KEY, getActivityName());
-
-                        HashMap<String, String> csvMap = qualityWriterFactory.getDataMap();
-                        HashMap<String, String> metaInfo = new HashMap<>();
-
-                        PacketDto packetDto = new PacketDto();
-                        packetDto.setProcess(dbImportRequest.getProcess());
-                        packetDto.setSource(source);
-                        packetDto.setSchemaVersion(String.valueOf(commonUtil.getLatestIdSchema().get("idVersion")));
-                        packetDto.setAdditionalInfoReqId(null);
-                        packetDto.setMetaInfo(null);
-                        packetDto.setOfflineMode(false);
-                        packetDto.setId(registrationId);
-
-                        if (!IS_ONLY_FOR_QUALITY_CHECK && docDetails.size() > 0) {
-                            packetDto.setDocuments(packetCreator.setDocuments(docDetails, dbImportRequest.getIgnoreIdSchemaFields(), metaInfo, demoDetails));
-                        }
-                        Long timeDifference = System.nanoTime()-startTime;
-                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Document Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
-
-                        if (!IS_ONLY_FOR_QUALITY_CHECK && demoDetails.size() > 0) {
-                            packetDto.setFields(packetCreator.setDemographic(demoDetails, (bioDetails.size() > 0), dbImportRequest.getIgnoreIdSchemaFields()));
-                        }
-
-                        timeDifference = System.nanoTime()-startTime;
-                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Demographic Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
-
-                        if (bioDetails.size() > 0) {
-                            packetDto.setBiometrics(packetCreator.setBiometrics(bioDetails, metaInfo, csvMap, refId, startTime));
-                        }
-
-                        timeDifference = System.nanoTime()-startTime;
-                        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Biometric Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
-
-                        csvMap.put("reg_no", registrationId);
-                        csvMap.put("ref_id", demoDetails.get(trackerColumn).toString());
-                        qualityWriterFactory.writeQualityData(csvMap);
-
-                        if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_EXPORTER) && !IS_ONLY_FOR_QUALITY_CHECK) {
-                            dataExporterApiFactory.export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter, refId, startTime);
-                        } else {
-                            ResultDto resultDto = new ResultDto();
-                            resultDto.setRegNo(null);
-                            resultDto.setRefId(demoDetails.get(trackerColumn).toString());
-                            resultDto.setComments("Quality Calculation Completed Successfully");
-                            resultDto.setStatus(TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
-                            setter.setResult(resultDto);
-                        }
-                    } catch (Exception e) {
-                        LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Exception : " + e.getMessage(), e);
-                            ResultDto resultDto = new ResultDto();
-                        resultDto.setRegNo(null);
-                        resultDto.setRefId(demoDetails.get(trackerColumn).toString());
-                        resultDto.setComments(e.getMessage());
-                        resultDto.setStatus(TrackerStatus.FAILED);
-                        setter.setResult(resultDto);
-                        throw e;
-                    }
-                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + (registrationId == null ? demoDetails.get(trackerColumn).toString() : registrationId) + " Process Ended");
-                    Long endTime = System.nanoTime();
-                    Long timeDifference = endTime-startTime;
-                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + refId + " Time taken to complete " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
-                    TIMECONSUPTIONQUEUE.add(timeDifference);
-                }
-            });
-            return true;
-        }
-        return false;
     }
 
     private void populateTableFields(DBImportRequest dbImportRequest) throws Exception {

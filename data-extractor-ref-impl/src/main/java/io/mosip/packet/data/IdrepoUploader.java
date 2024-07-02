@@ -45,7 +45,7 @@ import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_NAME;
 
 @Component
-public class IdrepoUploader implements DataExporter {
+public class IdrepoUploader {
 
     private static final Logger logger = DataProcessLogger.getLogger(IdrepoUploader.class);
     private static final String VERSION = "v1";
@@ -69,7 +69,6 @@ public class IdrepoUploader implements DataExporter {
 
     private byte[] xsd;
 
-    @Override
     public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
                          String trackerColumn, ResultSetter setter, String trackerRefId, Long startTime) throws Exception {
 

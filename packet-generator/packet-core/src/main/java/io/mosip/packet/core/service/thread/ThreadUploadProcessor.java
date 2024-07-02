@@ -1,7 +1,7 @@
 package io.mosip.packet.core.service.thread;
 
-import io.mosip.packet.core.dto.upload.PacketUploadDTO;
+import io.mosip.packet.core.dto.DataPostProcessorResponseDto;
 
 public interface ThreadUploadProcessor {
-    public void processData(ResultSetter setter, PacketUploadDTO result) throws Exception;
+    public void processData(ResultSetter setter, DataPostProcessorResponseDto result) throws Exception;
 }

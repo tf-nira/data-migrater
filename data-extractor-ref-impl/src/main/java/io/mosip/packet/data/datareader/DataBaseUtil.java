@@ -177,7 +177,7 @@ public class DataBaseUtil implements DataReader {
                         filterCondition += " AND ";
                     }
 
-                    filterCondition += trackColumn + String.format(" NOT IN (SELECT REF_ID FROM %s WHERE STATUS IN ('PROCESSED','PROCESSED_WITHOUT_UPLOAD', 'FAILED') AND SESSION_KEY = '%s') ", TRACKER_TABLE_NAME, SESSION_KEY);
+                    filterCondition += trackColumn + String.format(" NOT IN (SELECT REF_ID FROM %s WHERE SESSION_KEY = '%s') ", TRACKER_TABLE_NAME, SESSION_KEY);
                     selectSql += filterCondition;
                 }
 
@@ -315,6 +315,10 @@ public class DataBaseUtil implements DataReader {
                                 scrollableResultSet = statement1.executeQuery();
 
                                 if(scrollableResultSet.last()) {
+                                    LOGGER.warn("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "OFFSET Tracker auto disabled if Tracker Table belongs to same Database");
+                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Current Row Count from result set is " + scrollableResultSet.getRow());
+                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Current OFFSET Value is " + OFFSET_VALUE);
+                                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Current Fetch Size is " + scrollableResultSet.getFetchSize());
                                     TOTAL_RECORDS_FOR_PROCESS += Long.valueOf(scrollableResultSet.getRow());
                                     OFFSET_VALUE += Long.valueOf(scrollableResultSet.getRow());
                                     trackerUtil.updateDatabaseOffset(OFFSET_VALUE);

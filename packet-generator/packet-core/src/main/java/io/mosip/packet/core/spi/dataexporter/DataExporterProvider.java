@@ -1,13 +1,11 @@
 package io.mosip.packet.core.spi.dataexporter;
 
-import io.mosip.commons.packet.dto.packet.PacketDto;
-import io.mosip.packet.core.dto.dbimport.DBImportRequest;
+import io.mosip.packet.core.dto.DataPostProcessorResponseDto;
 import io.mosip.packet.core.service.thread.ResultSetter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.List;
 
 @Component
@@ -37,8 +35,7 @@ public class DataExporterProvider implements DataExporterApiFactory {
     }
 
     @Override
-    public Object export(PacketDto packetDto, DBImportRequest dbImportRequest, HashMap<String, String> metaInfo, HashMap<String, Object> demoDetails,
-                         String trackerColumn, ResultSetter setter, String trackerRefid, Long startTime) throws Exception {
-        return getExporter().export(packetDto, dbImportRequest, metaInfo, demoDetails, trackerColumn, setter, trackerRefid, startTime);
+    public Object export(DataPostProcessorResponseDto dataPostProcessorResponseDto, Long processStartTime, ResultSetter setter) throws Exception {
+        return getExporter().export(dataPostProcessorResponseDto, processStartTime, setter);
     }
 }
