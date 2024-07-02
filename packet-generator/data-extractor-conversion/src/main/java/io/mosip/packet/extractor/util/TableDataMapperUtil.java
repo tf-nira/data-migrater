@@ -218,8 +218,13 @@ public class TableDataMapperUtil implements DataMapperUtil {
 
                 if(fieldsCategoryMap.get(tableName).containsKey(fieldName) && resultSet.containsKey(fieldFormatRequest.getFieldToMap() + "_" + fieldName))  {
                     Document document = new Document();
+                    byte[] byteVal = null;
+                    if(fieldFormatRequest.getMvelExpressions() != null && mvelValue != null) {
+                        byteVal = convertObjectToByteArray(mvelValue);;
+                    } else {
+                        byteVal = convertObjectToByteArray(resultSet.get(fieldFormatRequest.getFieldToMap() + "_" + fieldName));
+                    }
 
-                    byte[] byteVal = convertObjectToByteArray(resultSet.get(fieldFormatRequest.getFieldToMap() + "_" + fieldName));
                     if(objectStoreFetchEnabled)
                         byteVal = objectStoreHelper.getBiometricObject(new String(byteVal, StandardCharsets.UTF_8));
                     byteVal = bioDocApiFactory.getDocData(byteVal, fieldMap).get(fieldMap);

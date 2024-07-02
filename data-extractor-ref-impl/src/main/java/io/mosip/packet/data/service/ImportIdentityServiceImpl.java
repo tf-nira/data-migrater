@@ -1,6 +1,5 @@
 package io.mosip.packet.data.service;
 
-import com.google.gson.Gson;
 import io.mosip.kernel.core.exception.ExceptionUtils;
 import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.packet.core.constant.ApiName;
@@ -15,14 +14,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID;
-import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_NAME;
 
 @Component
 public class ImportIdentityServiceImpl implements ImportIdentityService {
+
+    private static final String PROVINCE = "province";
+    private static final String DISTRICT = "district";
+    private static final String CONSTITUENCY = "constituency";
+    private static final String SUBFOLDER = "SUBFOLDER";
+    private static final String LANG_CODE = "eng";
+    private static final String HIERARCHY_NAME = "hierarchyName";
+    private static final String NAME = "name";
 
     private final Logger logger = DataProcessLogger.getLogger(ImportIdentityServiceImpl.class);
 
@@ -30,46 +35,78 @@ public class ImportIdentityServiceImpl implements ImportIdentityService {
     private DataRestClientService dataRestClientService;
 
     @Override
-    public ResponseWrapper importIdentity(IdRequestDto idRequestDto) {
-        //UIN Generation for every new request.
+    public ResponseWrapper importIdentity(IdRequestDto idRequestDto, Map<String, Object> demoDetails) throws ApisResourceAccessException {
         logger.info("Writer Request: {}", idRequestDto);
+        // Fetches location detail
+        getLocationDetails(idRequestDto, (String) demoDetails.get(SUBFOLDER));
+        // Generates UIN
         generateUIN(idRequestDto);
+        // Add Identity call
         return addIdentity(idRequestDto);
     }
 
-    private ResponseWrapper addIdentity(IdRequestDto idRequestDto) {
+    private void getLocationDetails(IdRequestDto idRequestDto, String locationCode) throws ApisResourceAccessException {
+        try {
+            // Location details fetch
+            //String locationCode = (String) ((Map<String, Object>) idRequestDto.getRequest().getIdentity()).get(SUBFOLDER);
+            List<String> pathSegments = Arrays.asList(locationCode, LANG_CODE);
+            ResponseWrapper response = (ResponseWrapper) dataRestClientService.getApi(ApiName.MASTER_LOCATION_GET, pathSegments, "", "", ResponseWrapper.class);
+            if (response != null && response.getResponse() != null) {
+                Map<String, Object> identity = ((Map<String, Object>) idRequestDto.getRequest().getIdentity());
+                Map<String, Object> responseMap = (Map<String, Object>) response.getResponse();
+                List<Map<String, Object>> locationDtos = (List<Map<String, Object>>) responseMap.get("locations");
+
+                locationDtos.stream().forEach(locationDtoMap -> {
+                    if (PROVINCE.equalsIgnoreCase(String.valueOf(locationDtoMap.get(HIERARCHY_NAME)))) {
+                        identity.put(PROVINCE, getLangMap(locationDtoMap));
+                    } else if(DISTRICT.equalsIgnoreCase(String.valueOf(locationDtoMap.get(HIERARCHY_NAME)))) {
+                        identity.put(DISTRICT, getLangMap(locationDtoMap));
+                    } else if(CONSTITUENCY.equalsIgnoreCase(String.valueOf(locationDtoMap.get(HIERARCHY_NAME)))){
+                        identity.put(CONSTITUENCY, getLangMap(locationDtoMap));
+                    }
+                });
+                logger.info("Location fetch success.");
+            }
+        } catch (ApisResourceAccessException e) {
+            logger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.APPLICATIONID.toString(), LoggerFileConstant.APPLICATIONID.toString(),
+                    e.getMessage() + ExceptionUtils.getStackTrace(e));
+            throw e;
+        }
+    }
+
+    private List<Map> getLangMap(Map<String, Object> locationDtoMap) {
+        return Arrays.asList(Map.of("language", LANG_CODE, "value", String.valueOf(locationDtoMap.get(NAME))));
+    }
+
+    private ResponseWrapper addIdentity(IdRequestDto idRequestDto) throws ApisResourceAccessException {
         //logger.info("Add Identity Request: {}", (new Gson()).toJson(idRequestDto));
         try {
-            Long startTime = System.nanoTime();
+
             ResponseWrapper response = (ResponseWrapper) dataRestClientService.postApi(ApiName.ADD_IDENTITY,
                     null, "", "", idRequestDto, ResponseWrapper.class);
-            logger.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Add Identity Api Call"+ TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-
+            logger.info("Add Identity call completed.");
             return response;
         } catch (ApisResourceAccessException e) {
             logger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.APPLICATIONID.toString(),
                     LoggerFileConstant.APPLICATIONID.toString(), e.getMessage() + ExceptionUtils.getStackTrace(e));
+            throw e;
         }
-        logger.info("Add Identity completed.");
-        return null;
     }
 
-    private void generateUIN(IdRequestDto idRequestDto) {
+    private void generateUIN(IdRequestDto idRequestDto) throws ApisResourceAccessException {
         try {
             // UIN generation
-            Long startTime = System.nanoTime();
             ResponseWrapper response = (ResponseWrapper) dataRestClientService.getApi(ApiName.GET_UIN, null, "", "", ResponseWrapper.class);
-            logger.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for generate UIN Api Call" + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
             if (response != null && response.getResponse() != null) {
                 Map<String, String> responseMap = (Map<String, String>) response.getResponse();
-                String uin = responseMap.get("uin");
-                ((Map<String, Object>) idRequestDto.getRequest().getIdentity()).put("UIN", uin);
+                ((Map<String, Object>) idRequestDto.getRequest().getIdentity()).put("UIN", responseMap.get("uin"));
+                logger.info("UIN Generation success.");
             }
-        } catch (Exception e) {
+        } catch (ApisResourceAccessException e) {
             logger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.APPLICATIONID.toString(), LoggerFileConstant.APPLICATIONID.toString(),
                     e.getMessage() + ExceptionUtils.getStackTrace(e));
+            throw e;
         }
-        logger.info("UIN Generation success.");
     }
 
 }

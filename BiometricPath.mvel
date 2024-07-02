@@ -1,0 +1,7 @@
+def getBiometricPath() {
+        String fileName = (String) identity.get('fileName');
+        String path = (String) identity.get('folder');
+        String subPath = (String) identity.get('subfolder');
+        String drivePath = (String) identity.get('drivePath');
+        return drivePath + "\\" + path + "\\" +  subPath + "\\" + fileName
+}

@@ -1,0 +1,10 @@
+def getDocumentPath() {
+        String frontPageName = (String) identity.get('frontPageName');
+		String backPageName = (String) identity.get('backPageName');
+        String path = (String) identity.get('folder');
+        String subPath = (String) identity.get('subfolder');
+        String drivePath = (String) identity.get('drivePath');
+		String frontPagePath = drivePath + "\\" + path + "\\" +  subPath + "\\" + frontPageName;
+		String backPagePath = drivePath + "\\" + path + "\\" +  subPath + "\\" + backPageName;
+        return frontPagePath + "," + backPagePath
+}

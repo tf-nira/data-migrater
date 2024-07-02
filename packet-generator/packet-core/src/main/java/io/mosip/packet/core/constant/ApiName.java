@@ -22,7 +22,8 @@ public enum ApiName {
     MASTER_MACHINE_ACTIVATE(LoginType.USER),
 	PACKET_BIOMETRIC_READER(LoginType.REGPROC),
 	GET_UIN(LoginType.IDREPO),
-	ADD_IDENTITY(LoginType.IDREPO);
+	ADD_IDENTITY(LoginType.IDREPO),
+	MASTER_LOCATION_GET(LoginType.REGISTRATION);
 
 	private LoginType loginType;
 
