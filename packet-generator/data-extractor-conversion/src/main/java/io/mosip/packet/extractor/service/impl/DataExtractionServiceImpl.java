@@ -222,6 +222,16 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 @Override
                 public void setResult(Object obj) {
                     Map<FieldCategory, HashMap<String, Object>> dataHashMap = (Map<FieldCategory, HashMap<String, Object>>) obj;
+                    TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+                    trackerRequestDto.setRegNo(null);
+                    trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+                    trackerRequestDto.setProcess(dbImportRequest.getProcess());
+                    trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+                    trackerRequestDto.setSessionKey(SESSION_KEY);
+                    trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
+                    trackerRequestDto.setComments("Object Ready For Processing");
+                    trackerUtil.addTrackerEntry(trackerRequestDto);
+
                     DataProcessorResponseDto processObject = dataProcessorApiFactory.process(dbImportRequest, dataHashMap, setter);
 
                     if(!IS_ONLY_FOR_QUALITY_CHECK) {

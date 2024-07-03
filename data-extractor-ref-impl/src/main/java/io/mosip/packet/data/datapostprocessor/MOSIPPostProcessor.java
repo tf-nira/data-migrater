@@ -62,19 +62,20 @@ public class MOSIPPostProcessor implements DataPostProcessor {
         DataPostProcessorResponseDto responseDto = new DataPostProcessorResponseDto();
         responseDto.setProcess(processObject.getProcess());
         responseDto.setRefId(processObject.getRefId());
+        responseDto.setTrackerRefId(processObject.getTrackerRefId());
         responseDto.setResponses(new HashMap<>());
 
         PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
         HashMap<String, Object> demoDetails = (HashMap<String, Object>) processObject.getResponses().get("demoDetails");
 
-        String trackerRefId = processObject.getRefId();
+        String trackerRefId = processObject.getTrackerRefId();
         List<PacketInfo> infoList = packetCreatorService.persistPacket(packetDto);
         PacketInfo info = infoList.get(0);
 
         Long timeDifference = System.nanoTime()-processStartTime;
         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Packet Creation in Local Storage " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
-        trackerUtil.addTrackerLocalEntry(trackerRefId, info.getId(), TrackerStatus.CREATED, processObject.getProcess(), demoDetails, SESSION_KEY, GlobalConfig.getActivityName());
+        trackerUtil.addTrackerLocalEntry(processObject.getRefId(), info.getId(), TrackerStatus.CREATED, processObject.getProcess(), demoDetails, SESSION_KEY, GlobalConfig.getActivityName());
 
         Path identityFile = Paths.get(System.getProperty("user.dir"), "identity.json");
 
@@ -115,13 +116,13 @@ public class MOSIPPostProcessor implements DataPostProcessor {
 
             if (enablePacketUpload) {
                 responseDto.getResponses().put("uploadDTO", uploadDTO);
-                trackerUtil.addTrackerLocalEntry(trackerRefId, info.getId(), TrackerStatus.READY_TO_SYNC, null, responseDto, SESSION_KEY, GlobalConfig.getActivityName());
+                trackerUtil.addTrackerLocalEntry(processObject.getRefId(), info.getId(), TrackerStatus.READY_TO_SYNC, null, responseDto, SESSION_KEY, GlobalConfig.getActivityName());
             } else {
                 responseDto.getResponses().put("message", "Successfully Inserted into Packet Tracker Table with Status PROCESSED_WITHOUT_UPLOAD");
                 LOGGER.warn("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Uploader Disabled : " + trackerRefId);
                 ResultDto resultDto = new ResultDto();
                 resultDto.setRegNo(info.getId());
-                resultDto.setRefId(trackerRefId);
+                resultDto.setRefId(processObject.getRefId());
                 resultDto.setComments("Packet Created");
                 resultDto.setStatus(TrackerStatus.PROCESSED_WITHOUT_UPLOAD);
                 setter.setResult(resultDto);

@@ -35,7 +35,7 @@ public class QueryFormatter {
 
     public String queryFormatter(String query, Map<String, String> map) {
         for(Map.Entry<String, String> entry : map.entrySet()) {
-            query = query.replace("<" + entry.getKey() + ">", entry.getValue());
+            query = query.replace("<" + entry.getKey() + ">", (entry.getValue() == null ? "" : entry.getValue()));
         }
         return query;
     }

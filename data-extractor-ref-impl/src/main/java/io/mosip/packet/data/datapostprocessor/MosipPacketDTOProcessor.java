@@ -82,7 +82,8 @@ public class MosipPacketDTOProcessor implements DataProcessor {
                 HashMap<String, Object> bioDetails = dataHashMap.get(FieldCategory.BIO);
                 HashMap<String, Object> docDetails = dataHashMap.get(FieldCategory.DOC);
                 String refId = registrationId == null ? demoDetails.get(trackerColumn).toString() : registrationId;
-                responseDto.setRefId(refId);
+                responseDto.setRefId(demoDetails.get(trackerColumn).toString());
+                responseDto.setTrackerRefId(refId);
                 LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + refId + " Process Started");
 
                 try {

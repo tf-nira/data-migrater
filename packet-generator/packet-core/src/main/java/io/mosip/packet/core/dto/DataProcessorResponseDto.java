@@ -9,6 +9,7 @@ import java.util.Map;
 @Setter
 public class DataProcessorResponseDto {
     private String refId;
+    private String trackerRefId;
     private Map<String, Object> responses;
     private String process;
 }

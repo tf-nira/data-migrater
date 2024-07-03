@@ -34,17 +34,12 @@ public class TrackerUtil {
     private static Connection conn = null;
     private PreparedStatement preparedStatement = null;
 
-    @Value("${mosip.packet.creator.tracking.batch.size:1}")
-    private int batchLimit;
-
     @Value("${mosip.packet.creator.tracking.batch.connection.reset.count:1000}")
     private int batchConResetCount;
 
-    private int batchSize = 0;
     private int connSize = 0;
     private static String connectionHost = null;
     private boolean isConnCreation = false;
-    private List<String> refList = new ArrayList<>();
 
     @Autowired
     private PacketTrackerRepository packetTrackerRepository;
@@ -147,22 +142,15 @@ public class TrackerUtil {
         }
     }
 
-    public synchronized void addTrackerEntry(TrackerRequestDto trackerRequestDto) {
+    public synchronized void addTrackerEntry(TrackerRequestDto trackerRequestDto) throws SQLException {
         if(IS_TRACKER_REQUIRED) {
+            PreparedStatement preparedStatement = null;
+            DBTypes dbType = Enum.valueOf(DBTypes.class, env.getProperty("spring.datasource.tracker.dbtype"));
+
             try {
-                batchSize++;
                 connSize++;
-                refList.add(trackerRequestDto.getRefId());
 
-                if(batchSize > batchLimit) {
-                    preparedStatement.executeBatch();
-                    preparedStatement.clearBatch();
-                    preparedStatement.closeOnCompletion();
-                    preparedStatement = null;
-                    batchSize = 1;
-                    refList.clear();
-
-                    if(connSize > batchConResetCount) {
+                if(connSize > batchConResetCount) {
                     isConnCreation=true;
                     LOGGER.info("TrackerUtil Closing Connection");
                     conn.close();
@@ -171,28 +159,30 @@ public class TrackerUtil {
                     LOGGER.info("TrackerUtil Starting Connection");
                     isConnCreation=false;
                     connSize=1;
-                    }
                 }
 
-                if(preparedStatement == null)
-                    preparedStatement = conn.prepareStatement(String.format("INSERT INTO %s (REF_ID, REG_NO, STATUS, CR_BY, CR_DTIMES, SESSION_KEY, ACTIVITY, PROCESS, COMMENTS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", TRACKER_TABLE_NAME));
 
+                String query = TableQueries.getInsertQueries(TRACKER_TABLE_NAME, dbType);
                 long timeNow = System.currentTimeMillis();
                 Timestamp timestamp = new Timestamp(timeNow);
-                preparedStatement.setString(1, trackerRequestDto.getRefId());
-                preparedStatement.setString(2, trackerRequestDto.getRegNo());
-                preparedStatement.setString(3, trackerRequestDto.getStatus());
-                preparedStatement.setString(4, "MIGRATOR");
-                preparedStatement.setTimestamp(5, timestamp);
-                preparedStatement.setString(6, trackerRequestDto.getSessionKey());
-                preparedStatement.setString(7, trackerRequestDto.getActivity());
-                preparedStatement.setString(8, trackerRequestDto.getProcess());
-                preparedStatement.setString(9, trackerRequestDto.getComments());
-                preparedStatement.addBatch();
+
+                Map<String, String> valueMap = new HashMap<>();
+                valueMap.put("TABLE_NAME", TRACKER_TABLE_NAME);
+                valueMap.put("REF_ID", trackerRequestDto.getRefId());
+                valueMap.put("REG_NO", trackerRequestDto.getRegNo());
+                valueMap.put("STATUS", trackerRequestDto.getStatus());
+                valueMap.put("CR_BY", "MIGRATOR");
+                valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, "dd-MM-yyyy HH:mm:ss"));
+                valueMap.put("SESSION_KEY", trackerRequestDto.getSessionKey());
+                valueMap.put("ACTIVITY", trackerRequestDto.getActivity());
+                valueMap.put("PROCESS", trackerRequestDto.getProcess());
+                valueMap.put("COMMENTS", trackerRequestDto.getComments());
+
+                preparedStatement = conn.prepareStatement(queryFormatter.queryFormatter(query, valueMap));
+                preparedStatement.execute();
             } catch (SQLException throwables) {
                 if(throwables.getMessage().contains("ORA-01000")) {
                     try {
-                        batchSize = 0;
                         connSize = 0;
                         conn.close();
                         conn=null;
@@ -206,6 +196,9 @@ public class TrackerUtil {
                             "Exception encountered during Tracker record insertion - TrackerUtil "
                                     + ExceptionUtils.getStackTrace(throwables));
                 }
+            } finally {
+                if(preparedStatement != null)
+                    preparedStatement.close();
             }
         }
     }
@@ -304,9 +297,6 @@ public class TrackerUtil {
             ResultSet resultSet = null;
 
             try {
-                if(refList.contains(value.toString()))
-                    return true;
-
                 while(isConnCreation)
                     Thread.sleep(2000);
 
@@ -322,7 +312,6 @@ public class TrackerUtil {
                     return false;
             } catch (SQLException throwables) {
                 if(throwables.getMessage().contains("ORA-01000")) {
-                    batchSize = 0;
                     connSize=0;
                     conn.close();
                     conn=null;
@@ -375,9 +364,11 @@ public class TrackerUtil {
                 sb.append(addColumn("UPD_DTIMES", Timestamp.class, 100, false, dbTypes));
                 sb.append(");");
 
-                sb.append(String.format("ALTER TABLE %s ADD PRIMARY KEY (SESSION_KEY, REF_ID, STATUS);", TRACKER_TABLE_NAME));
+                sb.append(String.format("ALTER TABLE %s ADD PRIMARY KEY (SESSION_KEY, REF_ID);", TRACKER_TABLE_NAME));
                 sb.append(String.format("CREATE INDEX IX_SEARCH_1 ON  %s (REF_ID, ACTIVITY, SESSION_KEY);", TRACKER_TABLE_NAME));
                 sb.append(String.format("CREATE INDEX IX_SEARCH_2 ON  %s (REF_ID, ACTIVITY, SESSION_KEY, STATUS);", TRACKER_TABLE_NAME));
+                sb.append(String.format("CREATE INDEX IX_SEARCH_3 ON  %s (REF_ID);", TRACKER_TABLE_NAME));
+                sb.append(String.format("CREATE INDEX IX_SEARCH_4 ON  %s (REF_ID, SESSION_KEY);", TRACKER_TABLE_NAME));
             } else {
                 sb.append(String.format("CREATE TABLE %s (", OFFSET_TRACKER_TABLE_NAME));
                 sb.append(addColumn("SESSION_KEY", String.class, 100, true, dbTypes) + ",");

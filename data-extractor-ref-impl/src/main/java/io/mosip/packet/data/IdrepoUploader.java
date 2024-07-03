@@ -68,11 +68,12 @@ public class IdrepoUploader implements DataPostProcessor {
         DataPostProcessorResponseDto responseDto = new DataPostProcessorResponseDto();
         responseDto.setProcess(processObject.getProcess());
         responseDto.setRefId(processObject.getRefId());
+        responseDto.setTrackerRefId(processObject.getTrackerRefId());
         responseDto.setResponses(new HashMap<>());
 
         PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
         HashMap<String, Object> demoDetails = (HashMap<String, Object>) processObject.getResponses().get("demoDetails");
-        String trackerRefId = processObject.getRefId();
+        String trackerRefId = processObject.getTrackerRefId();
 
         logger.info("Entering Idrepo identity Uploader, RID:{},NRCID:{} ", packetDto.getId(),
                 packetDto.getFields().get("nrcId"));
@@ -115,11 +116,11 @@ public class IdrepoUploader implements DataPostProcessor {
         if (response != null && response.getResponse() != null) {
             logger.info("Import identity success, response: {}", response.getResponse());
             responseDto.getResponses().put("message", "Import identity success, response: " + response.getResponse());
-            trackerStatusUpdate(trackerRefId, packetDto, setter, TrackerStatus.PROCESSED,  (new Gson()).toJson(responseDto));
+            trackerStatusUpdate(processObject.getRefId(), packetDto, setter, TrackerStatus.PROCESSED,  (new Gson()).toJson(responseDto));
         } else if (response != null && response.getErrors() != null) {
             logger.error("Error response received: {}", response.getErrors());
             responseDto.getResponses().put("message", "Error response received: "+ response.getErrors());
-            trackerStatusUpdate(trackerRefId, packetDto, setter, TrackerStatus.FAILED, (new Gson()).toJson(responseDto));
+            trackerStatusUpdate(processObject.getRefId(), packetDto, setter, TrackerStatus.FAILED, (new Gson()).toJson(responseDto));
         }
         timeDifference = System.nanoTime()-startTime;
         logger.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to exit the id repo file. " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
