@@ -7,7 +7,7 @@ import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.*;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.database.QueryLimitSetter;
-import io.mosip.packet.core.constant.database.QueryOffsetSetter;
+import io.mosip.packet.core.constant.database.QueryOffsetLimitSetter;
 import io.mosip.packet.core.dto.dbimport.*;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.service.thread.CustomizedThreadPoolExecutor;
@@ -64,6 +64,9 @@ public class DataBaseUtil implements DataReader {
     @Value("${mosip.extractor.application.id.column}")
     private String applicationIdColumn;
 
+    @Value("${mosip.packet.tracker.filter.enabled:false}")
+    private boolean isPackerTrackerFilterRequired;
+
     @Autowired
     private Activity activity;
 
@@ -83,8 +86,8 @@ public class DataBaseUtil implements DataReader {
                 String connectionHost = String.format(dbType.getDriverUrl(), dbImportRequest.getUrl(), dbImportRequest.getPort(), dbImportRequest.getDatabaseName());
                 conn = DriverManager.getConnection(connectionHost, dbImportRequest.getUserId(), dbImportRequest.getPassword());
 
-                if(isTrackerSameHost = trackerUtil.isTrackerHostSame(connectionHost, dbImportRequest.getDatabaseName()))
-                    trackColumn = dbImportRequest.getTrackerInfo().getTrackerColumn();
+                isTrackerSameHost = trackerUtil.isTrackerHostSame(connectionHost, dbImportRequest.getDatabaseName());
+                trackColumn = dbImportRequest.getTrackerInfo().getTrackerColumn();
 
                 LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "External DataBase" + dbImportRequest.getUrl() +  "Database Successfully connected");
                 System.out.println("External DataBase " + dbImportRequest.getUrl() + " Successfully connected");
@@ -169,7 +172,7 @@ public class DataBaseUtil implements DataReader {
             filterCondition = "";
 
             if(tableRequestDto.getExecutionOrderSequence().equals(1)) {
-                if(isTrackerSameHost) {
+                if(isTrackerSameHost && isPackerTrackerFilterRequired) {
                     if (!whereCondition) {
                         filterCondition = " WHERE ";
                         whereCondition=true;
@@ -181,13 +184,12 @@ public class DataBaseUtil implements DataReader {
                     selectSql += filterCondition;
                 }
 
-                if(applicationIdColumn != null && !applicationIdColumn.isEmpty())
-                    selectSql += " ORDER BY  " + applicationIdColumn;
+                selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
 
-                if(!isTrackerSameHost && OFFSET_VALUE != null && OFFSET_VALUE > 0)
-                    selectSql += " " + QueryOffsetSetter.valueOf(dbType.toString()).getValue(OFFSET_VALUE);
-
-                selectSql += " " + QueryLimitSetter.valueOf(dbType.toString()).getValue(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool);
+                if(!isPackerTrackerFilterRequired || !isTrackerSameHost)
+                    selectSql += " " + QueryOffsetLimitSetter.valueOf(dbType.toString()).getValue(OFFSET_VALUE, Long.valueOf(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool));
+                else
+                    selectSql += " " + QueryLimitSetter.valueOf(dbType.toString()).getValue(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool);
             }
 
             return formatter.replaceColumntoDataIfAny(selectSql, dataMap);
@@ -238,13 +240,9 @@ public class DataBaseUtil implements DataReader {
                         if(resultSet.getString(map.getColumnNameWithoutSchema()) != null) {
                             String value = resultSet.getString(map.getColumnNameWithoutSchema());
                             if(map.getMapColumnValue().equals(value)) {
-                                resultMap.put(documentEntry.getKey() + "_" + entry.getKey(), resultSet.getObject(entry.getKey()));
                                 resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));
                                 continue;
-                            } else
-                                resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));
-                        } else {
-                            resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));
+                            }
                         }
                     } catch (Exception e) {
                         resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));

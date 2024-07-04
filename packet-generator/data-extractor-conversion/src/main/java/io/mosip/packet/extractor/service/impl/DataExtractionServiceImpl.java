@@ -456,7 +456,10 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                             if (!fieldsCategoryMap.containsKey(tableName))
                                 fieldsCategoryMap.put(tableName, new HashMap<>());
 
-                            fieldsCategoryMap.get(tableName).put(fieldName.getFieldName(), fieldFormatRequest.getStaticValue());
+                            if(fieldFormatRequest.getFieldCategory().equals(FieldCategory.DOC))
+                                fieldsCategoryMap.get(tableName).put(fieldName.getFieldName() + " AS " + fieldFormatRequest.getFieldToMap() + "_" + fieldName.getFieldName(), fieldFormatRequest.getStaticValue());
+                            else
+                                fieldsCategoryMap.get(tableName).put(fieldName.getFieldName(), fieldFormatRequest.getStaticValue());
                         }
                         break;
 
@@ -471,7 +474,10 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 if (!fieldsCategoryMap.containsKey(tableName))
                     fieldsCategoryMap.put(tableName, new HashMap<>());
 
-                fieldsCategoryMap.get(tableName).put(fieldName.getFieldName(), fieldFormatRequest.getStaticValue());
+                if(fieldFormatRequest.getFieldCategory().equals(FieldCategory.DOC))
+                    fieldsCategoryMap.get(tableName).put(fieldName.getFieldName() + " AS " + fieldFormatRequest.getFieldToMap() + "_" + fieldName.getFieldName(), fieldFormatRequest.getStaticValue());
+                else
+                    fieldsCategoryMap.get(tableName).put(fieldName.getFieldName(), fieldFormatRequest.getStaticValue());
             }
 
             if(fieldFormatRequest.getPrimaryField() != null)
@@ -481,16 +487,12 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
             if(fieldFormatRequest.getDocumentAttributes() != null) {
                 DocumentAttributes documentAttributes = fieldFormatRequest.getDocumentAttributes();
-                fieldsCategoryMap.get(tableName).put(documentAttributes.getDocumentRefNoField().contains("STATIC") ? "'" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentRefNoField()) + "' AS STATIC_" +  commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentRefNoField())
-                        :  fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentRefNoField()), null);
-                fieldsCategoryMap.get(tableName).put(documentAttributes.getDocumentFormatField().contains("STATIC") ? "'" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentFormatField()) + "' AS STATIC_" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentFormatField())
-                        :  fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentFormatField()),null);
-                fieldsCategoryMap.get(tableName).put(documentAttributes.getDocumentCodeField().contains("STATIC") ? "'" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentCodeField()) + "' AS STATIC_" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentCodeField())
-                        :  fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentCodeField()), null);
-
-                if(fieldFormatRequest.getDocumentAttributes().getDocumentValueMap() == null) {
-                    throw new Exception("Implementation missing for Document Value Map to ID Schema for Column :" +  fieldFormatRequest.getFieldName());
-                }
+                fieldsCategoryMap.get(tableName).put(documentAttributes.getDocumentRefNoField().contains("STATIC") ? "'" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentRefNoField()) + "' AS " + fieldFormatRequest.getFieldToMap() + "_STATIC_" +  commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentRefNoField())
+                        :  fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentRefNoField()) + " AS " + fieldFormatRequest.getFieldToMap() + "_" + fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentRefNoField()), null);
+                fieldsCategoryMap.get(tableName).put(documentAttributes.getDocumentFormatField().contains("STATIC") ? "'" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentFormatField()) + "' AS " + fieldFormatRequest.getFieldToMap() + "_STATIC_" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentFormatField())
+                        :  fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentFormatField()) + " AS " + fieldFormatRequest.getFieldToMap() + "_" + fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentFormatField()),null);
+                fieldsCategoryMap.get(tableName).put(documentAttributes.getDocumentCodeField().contains("STATIC") ? "'" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentCodeField()) + "' AS " + fieldFormatRequest.getFieldToMap() + "_STATIC_" + commonUtil.getDocumentAttributeStaticValue(documentAttributes.getDocumentCodeField())
+                        :  fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentCodeField()) + " AS " + fieldFormatRequest.getFieldToMap() + "_" + fieldFormatRequest.getFieldNameWithoutSchema(documentAttributes.getDocumentCodeField()), null);
             }
         }
     }
