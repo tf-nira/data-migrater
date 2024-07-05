@@ -34,17 +34,24 @@ public class FieldFormatRequest {
         if(fieldList != null && fieldList.size() > 0)
             return fieldList;
         else {
+            String prefix = null;
+
             String[] fields = fieldName.split(",");
             fieldList = new ArrayList<>();
+
+            if(fieldCategory.equals(FieldCategory.DOC))
+                prefix = fieldToMap;
 
             for(int i = 0; i < fields.length; i++) {
                 String field = fields[i];
                 FieldName fieldName = new FieldName();
                 if(field.contains(".")) {
-                    fieldName.setFieldName(field.split("\\.")[1].toUpperCase());
+                    fieldName.setOriginalFieldName(field.split("\\.")[1].toUpperCase());
+                    fieldName.setModifiedFieldName((prefix!=null ? prefix+ "_" : "") + field.split("\\.")[1].toUpperCase());
                     fieldName.setTableName(field.split("\\.")[0].toUpperCase());
                 } else {
-                    fieldName.setFieldName(field.toUpperCase());
+                    fieldName.setOriginalFieldName(field.toUpperCase());
+                    fieldName.setModifiedFieldName((prefix!=null ? prefix+ "_" : "") + field.toUpperCase());
                     fieldName.setTableName(DEFAULT_TABLE.toUpperCase());
                 }
 

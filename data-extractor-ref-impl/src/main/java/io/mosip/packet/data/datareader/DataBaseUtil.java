@@ -20,12 +20,14 @@ import io.mosip.packet.core.util.DataMapperUtil;
 import io.mosip.packet.core.util.QueryFormatter;
 import io.mosip.packet.core.util.TrackerUtil;
 import lombok.SneakyThrows;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.sql.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.mosip.packet.core.constant.GlobalConfig.SESSION_KEY;
 import static io.mosip.packet.core.constant.GlobalConfig.*;
@@ -99,11 +101,23 @@ public class DataBaseUtil implements DataReader {
 
     }
 
-    private void initializeDocumentMap(DBImportRequest dbImportRequest) {
+    private void initializeDocumentMap(DBImportRequest dbImportRequest, Map<String, HashMap<String, String>> fieldsCategoryMap) {
         if(documentValue.isEmpty())
             for (FieldFormatRequest fieldFormatRequest : dbImportRequest.getColumnDetails()) {
                 if(fieldFormatRequest.getDocumentAttributes() != null && fieldFormatRequest.getDocumentAttributes().getDocumentValueMap() != null) {
-                    documentValue.put(fieldFormatRequest.getFieldToMap(), fieldFormatRequest.getDocumentAttributes().getDocumentValueMap());
+                    DocumentValueMap documentValueMap = fieldFormatRequest.getDocumentAttributes().getDocumentValueMap();
+                    documentValueMap.setFieldList(new ArrayList<>());
+
+                    for(Map.Entry<String, HashMap<String, String>> entry : fieldsCategoryMap.entrySet()) {
+                        HashMap<String, String> valueMap = entry.getValue();
+                        for(Map.Entry<String, String> valueEntry : valueMap.entrySet()) {
+                            if(valueEntry.getKey() != null && valueEntry.getKey().indexOf(fieldFormatRequest.getFieldToMap()) >= 0) {
+                                String[] fieldColumn = valueEntry.getKey().toUpperCase().split(" ");
+                                documentValueMap.getFieldList().add(fieldColumn.length > 1 ? fieldColumn[2] : fieldColumn[0]);
+                            }
+                        }
+                    }
+                    documentValue.put(fieldFormatRequest.getFieldToMap(), documentValueMap);
                 }
             }
     }
@@ -195,7 +209,15 @@ public class DataBaseUtil implements DataReader {
             return formatter.replaceColumntoDataIfAny(selectSql, dataMap);
         } else if (tableRequestDto.getQueryType().equals(QuerySelection.SQL_QUERY)) {
             String sqlQuery = tableRequestDto.getSqlQuery().toUpperCase();
-            return formatter.replaceColumntoDataIfAny(sqlQuery, dataMap);
+
+            Set<String> listOfFields =  Arrays.stream(sqlQuery.substring(sqlQuery.toUpperCase().indexOf("SELECT") + 6, sqlQuery.toUpperCase().indexOf("FROM")).split(",")).map(s -> {return s.trim();}).collect(Collectors.toSet());
+            listOfFields.remove("*");
+            for(String column : fieldsCategoryMap.get(tableRequestDto.getTableName()).keySet()) {
+                if(!listOfFields.contains(column.toUpperCase().split(" AS ")[0]))
+                    listOfFields.add(column.toUpperCase());
+            }
+            String modifiedQuery = "SELECT " + StringUtils.join(listOfFields, ',') + " " + sqlQuery.substring(sqlQuery.toUpperCase().indexOf("FROM"));
+            return formatter.replaceColumntoDataIfAny(modifiedQuery, dataMap);
         } else
             return null;
     }
@@ -230,28 +252,47 @@ public class DataBaseUtil implements DataReader {
         for (int i = 1; i <= columnCount; i++) {
             resultData.put(metadata.getColumnName(i).toUpperCase(), null);
         }
-        Map<String, Object> resultMap = (HashMap<String, Object>) resultData.clone();
+
+        Map<String, Object> resultMap = null;
+        if(documentValue != null && !documentValue.isEmpty())
+            resultMap = new HashMap<>();
+        else
+            resultMap = (Map<String, Object>) resultData.clone();
 
         for (Map.Entry<String, Object> entry : resultData.entrySet()) {
             if(documentValue != null && !documentValue.isEmpty()) {
+                boolean isDocumentFetch = false;
                 for(Map.Entry<String, DocumentValueMap> documentEntry : documentValue.entrySet()) {
                     DocumentValueMap map = documentEntry.getValue();
                     try {
                         if(resultSet.getString(map.getColumnNameWithoutSchema()) != null) {
                             String value = resultSet.getString(map.getColumnNameWithoutSchema());
                             if(map.getMapColumnValue().equals(value)) {
-                                resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));
-                                continue;
+                                isDocumentFetch = true;
+                                List<String> fieldList = map.getFieldList();
+                                for(String field : fieldList)
+                                    try {
+                                        resultMap.put(field, resultSet.getObject(field));
+                                    } catch (Exception e) {
+                                        try {
+                                            resultMap.put(field, resultSet.getObject(field.substring(field.indexOf("_")+1)));
+                                        } catch (Exception ex){}
+                                    }
+                                break;
                             }
                         }
                     } catch (Exception e) {
                         resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));
                     }
                 }
+
+                if(isDocumentFetch)
+                    break;
             } else {
                 resultMap.put(entry.getKey(), resultSet.getObject(entry.getKey()));
             }
         }
+
         return resultMap;
     }
 
@@ -281,7 +322,7 @@ public class DataBaseUtil implements DataReader {
         try {
             if(conn != null) {
                 IS_DATABASE_READ_OPERATION = true;
-                initializeDocumentMap(dbImportRequest);
+                initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
                 oneTimeCheckForZeroOffset = true;
                 threadPool = new CustomizedThreadPoolExecutor(dbReaderMaxThreadPoolCount, dbReaderMaxRecordsCountPerThreadPool, dbReaderMaxThreadExecCount, activity.getActivity(ActivityName.DATA_CREATOR.name()).getActivityName().getActivityName(), activity.getActivity(ActivityName.DATA_CREATOR.name()).isMonitorRequired());
 

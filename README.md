@@ -642,3 +642,5 @@ packetmanager.provider.uingenerator.individualBiometrics[Face]=source:REGISTRATI
     Ex: `mosip.extractor.application.id.column=CITIZEN_ID`
 
 
+For any static Value for Document, should be defined in Column Level. dont mention in SQL Query since system rewrite SQL Query
+

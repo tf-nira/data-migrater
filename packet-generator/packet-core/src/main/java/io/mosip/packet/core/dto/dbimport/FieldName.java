@@ -9,5 +9,6 @@ import lombok.Setter;
 @Data
 public class FieldName {
     private String tableName;
-    private String fieldName;
+    private String modifiedFieldName;
+    private String originalFieldName;
 }

@@ -9,6 +9,7 @@ import io.mosip.packet.core.constant.FieldCategory;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.FieldFormatRequest;
+import io.mosip.packet.core.dto.dbimport.FieldName;
 import io.mosip.packet.core.dto.dbimport.TableRequestDto;
 import io.mosip.packet.core.exception.ApisResourceAccessException;
 import io.mosip.packet.core.service.DataRestClientService;
@@ -183,5 +184,17 @@ public class CommonUtil {
                 nonIdSchemaNonTableFieldsMap.addAll(nonIdSchemaFieldList);
             }
         }
+    }
+
+    public boolean isFieldPresentInTable(String tableName, Map<String, HashMap<String, String>> fieldsCategoryMap, List<FieldName> fieldNames) {
+        boolean present = false;
+
+        for(FieldName fieldName : fieldNames) {
+            for(String tableField : fieldsCategoryMap.get(tableName).keySet()) {
+                if(tableField.indexOf(fieldName.getModifiedFieldName()) >= 0)
+                    present = true;
+            }
+        }
+        return present;
     }
 }
