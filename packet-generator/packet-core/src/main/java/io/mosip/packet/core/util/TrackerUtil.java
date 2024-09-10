@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -40,7 +41,7 @@ public class TrackerUtil {
     @Value("${mosip.packet.creator.tracking.batch.connection.reset.count:1000}")
     private int batchConResetCount;
 
-    @Value("${mosip.packet.tracker.table.creation.additional.fields:null}")
+    @Value("${mosip.packet.tracker.table.creation.additional.fields:}")
     private String additionalFields;
 
     private int connSize = 0;
@@ -81,7 +82,7 @@ public class TrackerUtil {
                 try {
                     statement = conn.createStatement();
                     statement.execute("SELECT COUNT(*) FROM " + TRACKER_TABLE_NAME);
-                    if(additionalFields != null) {
+                    if(StringUtils.hasText(additionalFields)) {
                         List<TrackerAdditionalColumns> val = mapper.readValue(additionalFields, new TypeReference<List<TrackerAdditionalColumns>>() {});
                         for(TrackerAdditionalColumns detail : val) {
                             PACKET_TRACKER_ADDITIONAL_FIELDS.put(detail.getColumnName(), detail.getIdSchemaField());
@@ -186,8 +187,17 @@ public class TrackerUtil {
                 valueMap.put("REF_ID", trackerRequestDto.getRefId());
                 valueMap.put("REG_NO", trackerRequestDto.getRegNo());
                 valueMap.put("STATUS", trackerRequestDto.getStatus());
+                if(trackerRequestDto.getStatus().equals(TrackerStatus.STARTED.toString())) {
+                    valueMap.put("CR_BY", "MIGRATOR");
+                    valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, "yyyy-MM-dd HH:mm:ss"));
+                    valueMap.put("UPD_BY", null);
+                    valueMap.put("UPD_DTIMES", null);
+                } else {
                 valueMap.put("CR_BY", "MIGRATOR");
-                valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, "dd-MM-yyyy HH:mm:ss"));
+                    valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, "yyyy-MM-dd HH:mm:ss"));
+                    valueMap.put("UPD_BY", "MIGRATOR");
+                    valueMap.put("UPD_DTIMES", DateUtils.formatDate(timestamp, "yyyy-MM-dd HH:mm:ss"));
+                }
                 valueMap.put("SESSION_KEY", trackerRequestDto.getSessionKey());
                 valueMap.put("ACTIVITY", trackerRequestDto.getActivity());
                 valueMap.put("PROCESS", trackerRequestDto.getProcess());
@@ -395,7 +405,7 @@ public class TrackerUtil {
                 sb.append(addColumn("UPD_BY", String.class, 100, false, dbTypes) + ",");
                 sb.append(addColumn("UPD_DTIMES", Timestamp.class, 100, false, dbTypes));
 
-                if(additionalFields != null) {
+                if(StringUtils.hasText(additionalFields)) {
                     List<TrackerAdditionalColumns> val = mapper.readValue(additionalFields, new TypeReference<List<TrackerAdditionalColumns>>() {});
                     for(TrackerAdditionalColumns detail : val) {
                         sb.append("," + addColumn(detail.getColumnName(), getClass(detail.getColumnType()), detail.getLength(), detail.getIsNotNull(), dbTypes));

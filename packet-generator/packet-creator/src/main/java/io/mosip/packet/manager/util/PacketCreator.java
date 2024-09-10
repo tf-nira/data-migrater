@@ -166,8 +166,8 @@ public class PacketCreator {
                         demoMap.put("individualBiometrics", mapper.writeValueAsString(indiBiotype));
                     }
                 }
-            } else if (type.equals("documentType")) {
-                if (demoDetails.containsKey(id) && demoDetails.get(id) != null)
+            } else if (demoDetails.containsKey(id) && demoDetails.get(id) != null) {
+                if (type.equals("documentType")) {
                     demoMap.put(id, String.valueOf(demoDetails.get(id)));
             } else if (demoDetails.containsKey(id) && demoDetails.get(id) != null) {
                 switch (type) {
@@ -183,6 +183,9 @@ public class PacketCreator {
                     case "string" :
                         demoMap.put(id, demoDetails.get(id) == null ? "" : String.valueOf(demoDetails.get(id)));
                         break;
+                        default:
+                            throw new Exception("Type '" + type + "' implementation missing in setDemographic");
+                    }
                 }
             } else if (required && !ignorableFields.contains(id)) {
                 throw new Exception("Mandatory Field '" + id + "' value missing");
