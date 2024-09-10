@@ -101,11 +101,11 @@ This project is licensed under the terms of [Mozilla Public License 2.0](LICENSE
 ###Source Database
 ```json
 "dbType": "POSTGRESQL",
-"url": "10.0.12.233",
+"url": "13.2.45.33",
 "port": "5432",
 "databaseName": "performance_migration",
 "userId": "postgres",
-"password": "test123",
+"password": "mosip123",
 ```
 #####dbType : 
 Describe the Source DB Type. Available values are `ORACLE`, `POSTGRESQL`, `MSSQL`, `MYSQL`
