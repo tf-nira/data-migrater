@@ -225,6 +225,8 @@ public class TableDataMapperUtil implements DataMapperUtil {
                     if(objectStoreFetchEnabled)
                         byteVal = objectStoreHelper.getBiometricObject(new String(byteVal, StandardCharsets.UTF_8));
                     byteVal = bioDocApiFactory.getDocData(byteVal, fieldMap).get(fieldMap);
+
+                    if(byteVal != null) {
                     document.setDocument(byteVal);
                     if(fieldFormatRequest.getDocumentAttributes() != null) {
                         DocumentAttributes documentAttributes = fieldFormatRequest.getDocumentAttributes();
@@ -249,6 +251,7 @@ public class TableDataMapperUtil implements DataMapperUtil {
                 }
             }
         }
+    }
     }
 
     private byte[] convertObjectToByteArray(Object obj) throws IOException, SQLException {

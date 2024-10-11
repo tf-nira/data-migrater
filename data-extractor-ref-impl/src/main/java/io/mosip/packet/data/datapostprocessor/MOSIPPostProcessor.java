@@ -1,5 +1,6 @@
 package io.mosip.packet.data.datapostprocessor;
 
+import com.google.gson.Gson;
 import io.mosip.commons.packet.dto.PacketInfo;
 import io.mosip.commons.packet.dto.packet.PacketDto;
 import io.mosip.kernel.core.logger.spi.Logger;
@@ -68,6 +69,7 @@ public class MOSIPPostProcessor implements DataPostProcessor {
         PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
         HashMap<String, Object> demoDetails = (HashMap<String, Object>) processObject.getResponses().get("demoDetails");
 
+        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "PacketDto Response " +  (new Gson()).toJson(packetDto));
         String trackerRefId = processObject.getTrackerRefId();
         List<PacketInfo> infoList = packetCreatorService.persistPacket(packetDto);
         PacketInfo info = infoList.get(0);
