@@ -217,6 +217,9 @@ public class DataBaseUtil implements DataReader {
                     listOfFields.add(column.toUpperCase());
             }
             String modifiedQuery = "SELECT " + StringUtils.join(listOfFields, ',') + " " + sqlQuery.substring(sqlQuery.toUpperCase().indexOf("FROM"));
+
+            modifiedQuery = "SELECT * FROM (" +  modifiedQuery + ")";
+            modifiedQuery += " " + QueryOffsetLimitSetter.valueOf(dbType.toString()).getValue(OFFSET_VALUE, Long.valueOf(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool));
             return formatter.replaceColumntoDataIfAny(modifiedQuery, dataMap);
         } else
             return null;

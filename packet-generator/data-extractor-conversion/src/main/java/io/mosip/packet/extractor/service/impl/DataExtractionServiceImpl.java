@@ -301,7 +301,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                                 isUploadInProgress = false;
                             }
 
-                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Upload Batch In-progress firs " + uploadExector.getCurrentPendingCount());
+                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Upload Batch Current Pending Count " + uploadExector.getCurrentPendingCount());
                             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Upload Batch Is-Upload-Inprogress " + isUploadInProgress);
                             if(uploadExector.getCurrentPendingCount() <= 0 && !isUploadInProgress)
                                 uploadProcessStarted = false;

@@ -256,9 +256,9 @@ public class CustomizedThreadPoolExecutor {
                                 currentPendingCount--;
                             }
                         });
+                        currentPendingCount++;
                         entry.execute(task);
                         taskAdded=true;
-                        currentPendingCount++;
                         break;
                     }
                 }
