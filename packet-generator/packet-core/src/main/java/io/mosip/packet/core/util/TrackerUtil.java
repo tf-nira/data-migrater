@@ -44,6 +44,9 @@ public class TrackerUtil {
     @Value("${mosip.packet.tracker.table.creation.additional.fields:}")
     private String additionalFields;
 
+    @Value("${mosip.packet.tracker.table.date.format:yyyy-MM-dd HH:mm:ss}")
+    private String dateFormat;
+
     private int connSize = 0;
     private static String connectionHost = null;
     private boolean isConnCreation = false;
@@ -189,14 +192,14 @@ public class TrackerUtil {
                 valueMap.put("STATUS", trackerRequestDto.getStatus());
                 if(trackerRequestDto.getStatus().equals(TrackerStatus.STARTED.toString())) {
                     valueMap.put("CR_BY", "MIGRATOR");
-                    valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, "yyyy-MM-dd HH:mm:ss"));
+                    valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, dateFormat));
                     valueMap.put("UPD_BY", null);
                     valueMap.put("UPD_DTIMES", null);
                 } else {
                 valueMap.put("CR_BY", "MIGRATOR");
-                    valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, "yyyy-MM-dd HH:mm:ss"));
+                    valueMap.put("CR_DTIMES", DateUtils.formatDate(timestamp, dateFormat));
                     valueMap.put("UPD_BY", "MIGRATOR");
-                    valueMap.put("UPD_DTIMES", DateUtils.formatDate(timestamp, "yyyy-MM-dd HH:mm:ss"));
+                    valueMap.put("UPD_DTIMES", DateUtils.formatDate(timestamp, dateFormat));
                 }
                 valueMap.put("SESSION_KEY", trackerRequestDto.getSessionKey());
                 valueMap.put("ACTIVITY", trackerRequestDto.getActivity());
