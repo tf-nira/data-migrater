@@ -55,6 +55,7 @@ public class ConfigUtil {
     private String selectedLanguages;
     private String machineSerialNum;
     private static final Logger LOGGER = DataProcessLogger.getLogger(ConfigUtil.class);
+    private String REFERENCE_ID = "INITIALIZATION";
 
     private ConfigUtil() {
     }
@@ -107,7 +108,7 @@ public class ConfigUtil {
 
                     List<HashMap<String, Object>> machines = null;
                     RequestWrapper wrapper = prepareMachineSearchDto(machineName);
-                    ResponseWrapper responseWrapper = (ResponseWrapper<PageDto>) restApiClient.postApi(ApiName.MASTER_MACHINE_SEARCH,null, null, wrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON);
+                    ResponseWrapper responseWrapper = (ResponseWrapper<PageDto>) restApiClient.postApi(ApiName.MASTER_MACHINE_SEARCH,null, null, wrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON, REFERENCE_ID);
 
                     if(responseWrapper.getErrors() != null && responseWrapper.getErrors().size() > 0) {
                         String message = getErrorMessage(getErrorList(responseWrapper));
@@ -193,12 +194,12 @@ public class ConfigUtil {
         model.setZoneCode(zoneCode);
 
         RequestWrapper machineRequestWrapper = prepareMachineCreateDto(model);;
-        ResponseWrapper machineResponseWrapper = (ResponseWrapper) restApiClient.postApi(ApiName.MASTER_MACHINE_CREATE,null, null, machineRequestWrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON);
+        ResponseWrapper machineResponseWrapper = (ResponseWrapper) restApiClient.postApi(ApiName.MASTER_MACHINE_CREATE,null, null, machineRequestWrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON, REFERENCE_ID);
 
         HashMap<String, Object> createResponse = (HashMap<String, Object>) machineResponseWrapper.getResponse();
         String queryParm = "id";
         String queryValue = (String) createResponse.get("id");
-        ResponseWrapper machineUpdateResponseWrapper = (ResponseWrapper) restApiClient.patchApi(ApiName.MASTER_MACHINE_ACTIVATE,null, queryParm, queryValue, null, ResponseWrapper.class);
+        ResponseWrapper machineUpdateResponseWrapper = (ResponseWrapper) restApiClient.patchApi(ApiName.MASTER_MACHINE_ACTIVATE,null, queryParm, queryValue, null, ResponseWrapper.class, REFERENCE_ID);
 
         if(machineUpdateResponseWrapper.getErrors() != null && !machineUpdateResponseWrapper.getErrors().isEmpty()) {
             String errorMessage = null;
@@ -286,7 +287,7 @@ public class ConfigUtil {
         try {
             ResponseWrapper response=null;
             try {
-                response = (ResponseWrapper) restApiClient.getApi(ApiName.MASTER_VALIDATOR_SERVICE_NAME, null, "keyindex", configUtil.keyIndex, ResponseWrapper.class);
+                response = (ResponseWrapper) restApiClient.getApi(ApiName.MASTER_VALIDATOR_SERVICE_NAME, null, "keyindex", configUtil.keyIndex, ResponseWrapper.class, REFERENCE_ID);
             } catch (Exception e) {
                 e.printStackTrace();
                 IS_NETWORK_AVAILABLE = false;
@@ -398,7 +399,7 @@ public class ConfigUtil {
         queryParmValue.add(centerMachineId);
 
         ResponseWrapper responseWrapper = (ResponseWrapper) restApiClient
-                .getApi(ApiName.GET_CERTIFICATE, null, queryParm, queryParmValue, ResponseWrapper.class);
+                .getApi(ApiName.GET_CERTIFICATE, null, queryParm, queryParmValue, ResponseWrapper.class, REFERENCE_ID);
 
         if(null != responseWrapper.getResponse()) {
             HashMap<String, Object> responseMap = (HashMap<String, Object>) responseWrapper.getResponse();

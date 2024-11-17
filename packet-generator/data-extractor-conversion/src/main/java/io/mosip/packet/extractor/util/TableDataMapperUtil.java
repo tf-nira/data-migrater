@@ -2,6 +2,7 @@ package io.mosip.packet.extractor.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.mosip.commons.packet.dto.Document;
+import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.packet.core.constant.BioSubType;
 import io.mosip.packet.core.constant.DataFormat;
 import io.mosip.packet.core.constant.FieldCategory;
@@ -12,6 +13,7 @@ import io.mosip.packet.core.dto.dbimport.FieldName;
 import io.mosip.packet.core.dto.dbimport.IndividualBiometricFormat;
 import io.mosip.packet.core.dto.mvel.MvelParameter;
 import io.mosip.packet.core.dto.packet.BioData;
+import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.service.CustomNativeRepository;
 import io.mosip.packet.core.spi.BioConvertorApiFactory;
 import io.mosip.packet.core.spi.BioDocApiFactory;
@@ -20,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
@@ -30,6 +31,7 @@ import java.util.*;
 
 @Component
 public class TableDataMapperUtil implements DataMapperUtil {
+    private static final Logger LOGGER = DataProcessLogger.getLogger(TableDataMapperUtil.class);
 
     @Autowired
     private CustomNativeRepository customNativeRepository;
@@ -171,6 +173,8 @@ public class TableDataMapperUtil implements DataMapperUtil {
                 }
             } else if (fieldFormatRequest.getFieldCategory().equals(FieldCategory.BIO)) {
                 String fieldName = fieldFormatRequest.getFieldList().get(0).getOriginalFieldName();
+                LOGGER.debug("SESSION_ID", "DATA_READER", "dataMapper()", "FieldName for Biometric Read " + fieldName);
+
                 Map<String, byte[]> map = new HashMap<>();
 
                 if(fieldsCategoryMap.get(tableName).containsKey(fieldName))  {
@@ -183,6 +187,7 @@ public class TableDataMapperUtil implements DataMapperUtil {
                         }
                     }
 
+                    LOGGER.debug("SESSION_ID", "DATA_READER", "dataMapper()", "Value for Biometric Read for Field : " + fieldName + " is : " + String.valueOf(byteVal));
                     if(byteVal != null) {
                         if(objectStoreFetchEnabled)
                             byteVal = objectStoreHelper.getBiometricObject(new String(byteVal, StandardCharsets.UTF_8));

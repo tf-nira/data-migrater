@@ -78,7 +78,7 @@ public class IdrepoUploader implements DataPostProcessor {
         logger.info("Entering Idrepo identity Uploader, RID:{},NRCID:{} ", packetDto.getId(),
                 packetDto.getFields().get("nrcId"));
         Long timeDifference = System.nanoTime()-startTime;
-        logger.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to enter the id repo file. " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+        logger.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to enter the id repo file. " + trackerRefId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
         Map<String, Object> identity = new HashMap<>();
         Map<String, String> packetFields = (Map<String, String>) packetDto.getFields();
@@ -123,7 +123,7 @@ public class IdrepoUploader implements DataPostProcessor {
             trackerStatusUpdate(processObject.getRefId(), packetDto, setter, TrackerStatus.FAILED, (new Gson()).toJson(responseDto));
         }
         timeDifference = System.nanoTime()-startTime;
-        logger.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to exit the id repo file. " + trackerRefId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+        logger.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to exit the id repo file. " + trackerRefId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
         return responseDto;
     }

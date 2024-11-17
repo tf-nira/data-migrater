@@ -65,12 +65,12 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	 */
 	@Override
 	public Object getApi(ApiName apiName, List<String> pathsegments, String queryParamName, String queryParamValue,
-						 Class<?> responseType) throws ApisResourceAccessException {
-		return getApi(apiName, pathsegments,queryParamName,  queryParamValue, responseType, true);
+						 Class<?> responseType, String trackerRefId) throws ApisResourceAccessException {
+		return getApi(apiName, pathsegments,queryParamName,  queryParamValue, responseType, true, trackerRefId);
 	}
 
 	public Object getApi(ApiName apiName, List<String> pathsegments, String queryParamName, String queryParamValue,
-						 Class<?> responseType, boolean isAuthRequired) throws ApisResourceAccessException {
+						 Class<?> responseType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::getApi()::entry");
 		RestApiClient.setIsAuthRequired(isAuthRequired);
 		Object obj = null;
@@ -104,7 +104,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 
 				uriComponents = builder.build(false).encode();
 				LOGGER.debug(uriComponents.toUri().toString(), "URI");
-				obj = restApiClient.getApi(uriComponents.toUri(), responseType, apiName.getLoginType());
+				obj = restApiClient.getApi(uriComponents.toUri(), responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -118,12 +118,12 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 
 	@Override
 	public Object getApi(ApiName apiName, List<String> pathsegments, List<String> queryParamName, List<Object> queryParamValue,
-						 Class<?> responseType) throws ApisResourceAccessException {
-		return getApi(apiName,pathsegments, queryParamName, queryParamValue, responseType, true );
+						 Class<?> responseType, String trackerRefId) throws ApisResourceAccessException {
+		return getApi(apiName,pathsegments, queryParamName, queryParamValue, responseType, true, trackerRefId );
 	}
 
 	public Object getApi(ApiName apiName, List<String> pathsegments, List<String> queryParamName, List<Object> queryParamValue,
-						 Class<?> responseType, boolean isAuthRequired) throws ApisResourceAccessException {
+						 Class<?> responseType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::getApi()::entry");
 		RestApiClient.setIsAuthRequired(isAuthRequired);
 		Object obj = null;
@@ -154,7 +154,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 
 				uriComponents = builder.build(false).encode();
 				LOGGER.debug(uriComponents.toUri().toString(),"URI");
-				obj = restApiClient.getApi(uriComponents.toUri(), responseType, apiName.getLoginType());
+				obj = restApiClient.getApi(uriComponents.toUri(), responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -169,11 +169,11 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	}
 
 	public Object postApi(ApiName apiName, String queryParamName, String queryParamValue, Object requestedData,
-						  Class<?> responseType, MediaType mediaType) throws ApisResourceAccessException {
-		return postApi(apiName, queryParamName, queryParamValue,  requestedData, responseType, mediaType, true);
+						  Class<?> responseType, MediaType mediaType, String trackerRefId) throws ApisResourceAccessException {
+		return postApi(apiName, queryParamName, queryParamValue,  requestedData, responseType, mediaType, true, trackerRefId);
 	}
 	public Object postApi(ApiName apiName, String queryParamName, String queryParamValue, Object requestedData,
-			Class<?> responseType, MediaType mediaType, boolean isAuthRequired) throws ApisResourceAccessException {
+			Class<?> responseType, MediaType mediaType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::postApi()::entry");
 
 		RestApiClient.setIsAuthRequired(isAuthRequired);
@@ -194,7 +194,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType());
+				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -209,7 +209,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	}
 
 	public Object postApi(String apiHostIpPort, String queryParamName, String queryParamValue, Object requestedData,
-						  Class<?> responseType, MediaType mediaType, boolean isAuthRequired, ApiName apiName) throws ApisResourceAccessException {
+						  Class<?> responseType, MediaType mediaType, boolean isAuthRequired, ApiName apiName, String trackerRefId) throws ApisResourceAccessException {
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::postApi()::entry");
 		RestApiClient.setIsAuthRequired(isAuthRequired);
 		Object obj = null;
@@ -228,7 +228,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType());
+				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -253,19 +253,19 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	 */
 	@Override
 	public Object postApi(ApiName apiName, String queryParamName, String queryParamValue, Object requestedData,
-			Class<?> responseType) throws ApisResourceAccessException {
-		return postApi(apiName, queryParamName, queryParamValue, requestedData, responseType, null);
+			Class<?> responseType, String trackerRefId) throws ApisResourceAccessException {
+		return postApi(apiName, queryParamName, queryParamValue, requestedData, responseType, null, trackerRefId);
 	}
 
 	@Override
 	public Object postApi(ApiName apiName, String queryParamName, String queryParamValue, Object requestedData,
-						  Class<?> responseType, boolean isAuthRequired) throws ApisResourceAccessException {
-		return postApi(apiName, queryParamName, queryParamValue, requestedData, responseType, null, isAuthRequired);
+						  Class<?> responseType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
+		return postApi(apiName, queryParamName, queryParamValue, requestedData, responseType, null, isAuthRequired, trackerRefId);
 	}
 
 	@Override
-	public Object postApi(String apiHostIpPort, String queryParam, String queryParamValue, Object requestedData, Class<?> responseType, boolean isAuthRequired, ApiName apiName) throws ApisResourceAccessException {
-		return postApi(apiHostIpPort, queryParam, queryParamValue, requestedData, responseType, null, isAuthRequired, apiName);
+	public Object postApi(String apiHostIpPort, String queryParam, String queryParamValue, Object requestedData, Class<?> responseType, boolean isAuthRequired, ApiName apiName, String trackerRefId) throws ApisResourceAccessException {
+		return postApi(apiHostIpPort, queryParam, queryParamValue, requestedData, responseType, null, isAuthRequired, apiName, trackerRefId);
 	}
 
 	/*
@@ -278,12 +278,12 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	 */
 	@Override
 	public Object postApi(ApiName apiName, List<String> pathsegments, String queryParamName, String queryParamValue,
-						  Object requestedData, Class<?> responseType) throws ApisResourceAccessException {
-		return postApi(apiName, pathsegments, queryParamName, queryParamValue, requestedData, responseType, true);
+						  Object requestedData, Class<?> responseType, String trackerRefId) throws ApisResourceAccessException {
+		return postApi(apiName, pathsegments, queryParamName, queryParamValue, requestedData, responseType, true, trackerRefId);
 	}
 
 	public Object postApi(ApiName apiName, List<String> pathsegments, String queryParamName, String queryParamValue,
-			Object requestedData, Class<?> responseType, boolean isAuthRequired) throws ApisResourceAccessException {
+			Object requestedData, Class<?> responseType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
 
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::postApi()::entry");
 		RestApiClient.setIsAuthRequired(isAuthRequired);
@@ -312,7 +312,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), null, requestedData, responseType, apiName.getLoginType());
+				obj = restApiClient.postApi(builder.toUriString(), null, requestedData, responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -328,12 +328,12 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 
 	@Override
 	public Object postApi(ApiName apiName, MediaType mediaType, List<String> pathsegments, List<String> queryParamName, List<Object> queryParamValue,
-						  Object requestedData, Class<?> responseType) throws ApisResourceAccessException {
-		return postApi(apiName, mediaType, pathsegments, queryParamName, queryParamValue, requestedData, responseType, true);
+						  Object requestedData, Class<?> responseType, String trackerRefId) throws ApisResourceAccessException {
+		return postApi(apiName, mediaType, pathsegments, queryParamName, queryParamValue, requestedData, responseType, true, trackerRefId);
 	}
 
 	public Object postApi(ApiName apiName, MediaType mediaType, List<String> pathsegments, List<String> queryParamName, List<Object> queryParamValue,
-						  Object requestedData, Class<?> responseType, boolean isAuthRequired) throws ApisResourceAccessException {
+						  Object requestedData, Class<?> responseType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
 
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::postApi()::entry");
 		RestApiClient.setIsAuthRequired(isAuthRequired);
@@ -360,7 +360,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType());
+				obj = restApiClient.postApi(builder.toUriString(), mediaType, requestedData, responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -394,12 +394,12 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	 * @return
 	 * @throws RestClientException
 	 */
-	public Map<String, Object> invokeURL(RequestHTTPDTO requestHTTPDTO) throws Exception {
+	public Map<String, Object> invokeURL(RequestHTTPDTO requestHTTPDTO, String trackerRefId) throws Exception {
 		Map<String, Object> responseMap = null;
 
 		addAuthZToken(requestHTTPDTO);
 		HashMap responseEntity = restApiClient.invoke(requestHTTPDTO.getUri(), requestHTTPDTO.getHttpMethod(),
-				requestHTTPDTO.getHttpEntity(), requestHTTPDTO.getClazz(), getHttpRequestFactory());
+				requestHTTPDTO.getHttpEntity(), requestHTTPDTO.getClazz(), getHttpRequestFactory(), trackerRefId);
 
 		if (responseEntity != null) {
 			responseMap = new HashMap<>();
@@ -473,11 +473,11 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	}
 
 	public Object putApi(ApiName apiName, String queryParamName, String queryParamValue, Object requestedData,
-						  Class<?> responseType, MediaType mediaType) throws ApisResourceAccessException {
-		return putApi(apiName, queryParamName, queryParamValue,  requestedData, responseType, mediaType, true);
+						  Class<?> responseType, MediaType mediaType, String trackerRefId) throws ApisResourceAccessException {
+		return putApi(apiName, queryParamName, queryParamValue,  requestedData, responseType, mediaType, true, trackerRefId);
 	}
 	public Object putApi(ApiName apiName, String queryParamName, String queryParamValue, Object requestedData,
-						  Class<?> responseType, MediaType mediaType, boolean isAuthRequired) throws ApisResourceAccessException {
+						  Class<?> responseType, MediaType mediaType, boolean isAuthRequired, String trackerRefId) throws ApisResourceAccessException {
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::putApi()::entry");
 
 		RestApiClient.setIsAuthRequired(isAuthRequired);
@@ -498,7 +498,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.putApi(builder.toUriString(), requestedData, responseType, mediaType, apiName.getLoginType());
+				obj = restApiClient.putApi(builder.toUriString(), requestedData, responseType, mediaType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);
@@ -513,7 +513,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 	}
 
 	public Object patchApi(ApiName apiName, List<String> pathsegments, String queryParamName, String queryParamValue,
-						   Object requestedData, Class<?> responseType) throws ApisResourceAccessException {
+						   Object requestedData, Class<?> responseType, String trackerRefId) throws ApisResourceAccessException {
 
 		LOGGER.debug("RegistrationProcessorRestClientServiceImpl::putApi()::entry");
 		Object obj = null;
@@ -541,7 +541,7 @@ public class DataRestClientServiceImpl implements DataRestClientService<Object> 
 			}
 
 			try {
-				obj = restApiClient.patchApi(builder.toUriString(), requestedData, responseType, apiName.getLoginType());
+				obj = restApiClient.patchApi(builder.toUriString(), requestedData, responseType, apiName.getLoginType(), trackerRefId);
 
 			} catch (Exception e) {
 				LOGGER.error(e.getMessage() , e);

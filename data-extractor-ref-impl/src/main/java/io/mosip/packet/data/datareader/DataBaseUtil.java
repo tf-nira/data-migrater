@@ -200,13 +200,16 @@ public class DataBaseUtil implements DataReader {
 
                 selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
 
+                if(tableRequestDto.getExecutionOrderSequence() == 1) {
                 if(!isPackerTrackerFilterRequired || !isTrackerSameHost)
                     selectSql += " " + QueryOffsetLimitSetter.valueOf(dbType.toString()).getValue(OFFSET_VALUE, Long.valueOf(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool));
                 else
                     selectSql += " " + QueryLimitSetter.valueOf(dbType.toString()).getValue(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool);
             }
-
-            return formatter.replaceColumntoDataIfAny(selectSql, dataMap);
+            }
+            String sqlQuery =  formatter.replaceColumntoDataIfAny(selectSql, dataMap);
+            LOGGER.debug("SESSION_ID", "DATA_READER", "generateQuery()", "SQL Query Generated : " + sqlQuery);
+            return sqlQuery;
         } else if (tableRequestDto.getQueryType().equals(QuerySelection.SQL_QUERY)) {
             String sqlQuery = tableRequestDto.getSqlQuery().toUpperCase();
 
@@ -219,8 +222,12 @@ public class DataBaseUtil implements DataReader {
             String modifiedQuery = "SELECT " + StringUtils.join(listOfFields, ',') + " " + sqlQuery.substring(sqlQuery.toUpperCase().indexOf("FROM"));
 
             modifiedQuery = "SELECT * FROM (" +  modifiedQuery + ")";
+            if(tableRequestDto.getExecutionOrderSequence() == 1) {
             modifiedQuery += " " + QueryOffsetLimitSetter.valueOf(dbType.toString()).getValue(OFFSET_VALUE, Long.valueOf(dbReaderMaxThreadPoolCount*dbReaderMaxRecordsCountPerThreadPool));
-            return formatter.replaceColumntoDataIfAny(modifiedQuery, dataMap);
+            }
+            String sqlQuery1 =  formatter.replaceColumntoDataIfAny(modifiedQuery, dataMap);
+            LOGGER.debug("SESSION_ID", "DATA_READER", "generateQuery()", "SQL Query Generated : " + sqlQuery1);
+            return sqlQuery1;
         } else
             return null;
     }

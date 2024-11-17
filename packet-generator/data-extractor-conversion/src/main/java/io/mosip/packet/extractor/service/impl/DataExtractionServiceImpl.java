@@ -123,6 +123,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     @Autowired
     private Activity activity;
 
+    private ObjectMapper mapper = new ObjectMapper();
+
+
     @Override
     public HashMap<String, Object> extractBioDataFromDBAsBytes(DBImportRequest dbImportRequest, Boolean localStoreRequired) throws Exception {
         HashMap<String, Object> biodata = new HashMap<>();
@@ -222,6 +225,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 @SneakyThrows
                 @Override
                 public void setResult(Object obj) {
+                    Long startTime = System.nanoTime();
                     Map<FieldCategory, HashMap<String, Object>> dataHashMap = (Map<FieldCategory, HashMap<String, Object>>) obj;
                     TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
                     trackerRequestDto.setRegNo(null);
@@ -232,12 +236,12 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
                     trackerRequestDto.setComments("Object Ready For Processing");
                     trackerUtil.addTrackerEntry(trackerRequestDto);
-
+                    LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "DataProcessor", "Request for Data Processor : " + trackerRequestDto.getRefId() + " : " + mapper.writeValueAsString(dataHashMap));
                     DataProcessorResponseDto processObject = dataProcessorApiFactory.process(dbImportRequest, dataHashMap, setter);
 
                     if(!IS_ONLY_FOR_QUALITY_CHECK) {
                         if(GlobalConfig.getApplicableActivityList().contains(ActivityName.DATA_POST_PROCESSOR)) {
-                            DataPostProcessorResponseDto postProcessorResponseDto = dataPostProcessorApiFactory.postProcess(processObject, setter, startTime.getTime());
+                            DataPostProcessorResponseDto postProcessorResponseDto = dataPostProcessorApiFactory.postProcess(processObject, setter, startTime);
                         }
                     } else {
                         ResultDto resultDto = new ResultDto();
@@ -249,8 +253,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     }
                     LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + processObject.getRefId()+ " Process Ended");
                     Long endTime = System.nanoTime();
-                    Long timeDifference = endTime-startTime.getTime();
-                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + processObject.getRefId() + " Time taken to complete " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    Long timeDifference = endTime-startTime;
+                    LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Thread - " + processObject.getRefId() + " Time taken to complete " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
                     TIMECONSUPTIONQUEUE.add(timeDifference);
                 }
             };
@@ -377,14 +381,13 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             requestWrapper.setVersion("1.0");
             requestWrapper.setRequesttime(DateUtils.getUTCCurrentDateTimeString());
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Fetching Biometrics from Packet Manager for RID " + rid);
-            ResponseWrapper<HashMap<String, List<HashMap<String, Object>>>> responseWrapper = (ResponseWrapper) dataRestClientService.postApi(ApiName.PACKET_BIOMETRIC_READER, null, null, requestWrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON);
+            ResponseWrapper<HashMap<String, List<HashMap<String, Object>>>> responseWrapper = (ResponseWrapper) dataRestClientService.postApi(ApiName.PACKET_BIOMETRIC_READER, null, null, requestWrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON, rid);
             capturedBiometrics = responseWrapper.getResponse();
             List<HashMap<String, Object>> birList = capturedBiometrics.get("segments");
 
             for(HashMap<String, Object> birObject : birList) {
                 birObject.remove("birs");
                 ((HashMap)birObject.get("bdbInfo")).remove("creationDate");
-                ObjectMapper mapper = new ObjectMapper();
                 String jsonString = mapper.writeValueAsString(birObject);
                 BIR bir = mapper.readValue(jsonString,
                         new TypeReference<BIR>() {

@@ -103,21 +103,22 @@ public class MosipPacketDTOProcessor implements DataProcessor {
                         packetDto.setDocuments(packetCreator.setDocuments(docDetails, dbImportRequest.getIgnoreIdSchemaFields(), metaInfo, demoDetails));
                     }
                     Long timeDifference = System.nanoTime()-startTime;
-                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Document Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Document Process " + refId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                     if (!IS_ONLY_FOR_QUALITY_CHECK && demoDetails.size() > 0) {
                         packetDto.setFields(packetCreator.setDemographic(demoDetails, (bioDetails.size() > 0), dbImportRequest.getIgnoreIdSchemaFields()));
                     }
 
                     timeDifference = System.nanoTime()-startTime;
-                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Demographic Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Demographic Process " + refId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                     if (bioDetails.size() > 0) {
+                        LOGGER.debug("SESSION_ID", "DATA_PROCESSOR", "process()", "Reference Id : " + refId + " Biometrics found size is  : " + bioDetails.size());
                         packetDto.setBiometrics(packetCreator.setBiometrics(bioDetails, metaInfo, csvMap, refId, startTime));
                     }
 
                     timeDifference = System.nanoTime()-startTime;
-                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Biometric Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Biometric Process " + refId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                     csvMap.put("reg_no", registrationId);
                     csvMap.put("ref_id", demoDetails.get(trackerColumn).toString());
@@ -128,14 +129,14 @@ public class MosipPacketDTOProcessor implements DataProcessor {
                     packetDto.setMetaInfo(metaInfo);
                     packetDto.setAudits(packetCreator.setAudits(packetDto.getId()));
                     timeDifference = System.nanoTime()-startTime;
-                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Audit Log set Process " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Completion of Audit Log set Process " + refId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                     HashMap<String, Object> idSchema = commonUtil.getLatestIdSchema();
                     packetDto.setSchemaJson(idSchema.get("schemaJson").toString());
                     packetDto.setOfflineMode(true);
 
                     timeDifference = System.nanoTime()-startTime;
-                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Fetching Latest ID Schema " + refId + " " + TimeUnit.SECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
+                    LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken for Fetching Latest ID Schema " + refId + " " + TimeUnit.MILLISECONDS.convert(timeDifference, TimeUnit.NANOSECONDS));
 
                     responseDto.getResponses().put("demoDetails", demoDetails);
                     responseDto.getResponses().put("packetDto", packetDto);

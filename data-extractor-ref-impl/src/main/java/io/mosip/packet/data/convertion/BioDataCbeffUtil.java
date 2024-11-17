@@ -45,7 +45,7 @@ public class BioDataCbeffUtil implements BioDocApiFactory {
         requestDto.setTimeStamp(DateUtils.getUTCCurrentDateTime());
         RequestWrapper request = new RequestWrapper();
         request.setRequest(requestDto);
-        ResponseWrapper responseWrapper = (ResponseWrapper) restApiClient.postApi(ApiName.KERNEL_DECRYPT, null, null, request, ResponseWrapper.class, MediaType.APPLICATION_JSON);
+        ResponseWrapper responseWrapper = (ResponseWrapper) restApiClient.postApi(ApiName.KERNEL_DECRYPT, null, null, request, ResponseWrapper.class, MediaType.APPLICATION_JSON, "BioDataCbeffUtil Decryption");
 
         if(responseWrapper.getErrors() != null && responseWrapper.getErrors().size() > 0) {
 

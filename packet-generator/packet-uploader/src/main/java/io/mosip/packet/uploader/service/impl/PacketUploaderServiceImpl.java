@@ -48,6 +48,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static io.mosip.kernel.core.util.JsonUtils.javaObjectToJsonString;
@@ -103,36 +104,42 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
     @Override
     public void syncPacket(@NonNull List<PacketUploadDTO> packets, String centerId, String machineId, HashMap<String, PacketUploadResponseDTO> response) throws Exception {
         try {
+            Long startTime = System.nanoTime();
             this.centerId = centerId;
             this.machineId = machineId;
+            String trackerRefId = packets.stream().map(p -> p.getPacketId()).collect(Collectors.toSet()).toString();
+            LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncPacket()", "Time Taken for syncPacket Start. Reference ID : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
             restApiClient.setCenterMachineId(centerId, machineId);
-            Object obj = syncRIDToServerWithRetryWrapper(packets);
+            Object obj = syncRIDToServerWithRetryWrapper(packets, trackerRefId, startTime);
+            LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncPacket()", "Time Taken for syncPacket Complete. Reference ID : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Sync API Response" + (new Gson()).toJson(obj));
         } catch (JsonProcessingException | KeymanagerServiceException e) {
             e.printStackTrace();
         }
     }
 
-    private Object syncRIDToServerWithRetryWrapper(List<PacketUploadDTO> packets) throws Exception {
+    private Object syncRIDToServerWithRetryWrapper(List<PacketUploadDTO> packets, String trackerRefId, Long startTime) throws Exception {
         RetryCallback<Boolean, Exception> retryCallback = new RetryCallback<Boolean, Exception>() {
             @SneakyThrows
             @Override
             public Boolean doWithRetry(RetryContext retryContext) throws Exception {
-                syncRIDToServer(packets);
+                syncRIDToServer(packets, startTime, trackerRefId);
+                LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncRIDToServerWithRetryWrapper()", "Time Taken to complete sync. Reference ID : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
                 return true;
             }
         };
         return retryTemplate.execute(retryCallback);
     }
 
-        private synchronized void syncRIDToServer(List<PacketUploadDTO> packets) throws Exception {
+        private synchronized void syncRIDToServer(List<PacketUploadDTO> packets, Long startTime, String trackerRefId) throws Exception {
 
         List<SyncRegistrationDTO> syncDtoList = getPacketSyncDtoList(packets);
+            LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncRIDToServer()", "Time Taken for getPacketSyncDtoList() Reference ID : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
         List<SyncRegistrationDTO> syncDtoWithPacketId = syncDtoList.stream().filter(dto -> !dto.getRegistrationId().equals(dto.getPacketId())).collect(Collectors.toList());
 
         if (syncDtoList != null && !syncDtoList.isEmpty()) {
             try {
-                syncRID(syncDtoWithPacketId, true);
+                syncRID(syncDtoWithPacketId, true, startTime, trackerRefId);
             } catch (Exception e) {
                 throw e;
             }
@@ -169,7 +176,7 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
             return syncDtoList;
         }
 
-        private void syncRID(List<SyncRegistrationDTO> syncDtoList, boolean packetIdExists) throws Exception {
+        private void syncRID(List<SyncRegistrationDTO> syncDtoList, boolean packetIdExists, Long startTime, String trackerRefId) throws Exception {
         if (!syncDtoList.isEmpty()) {
             RegistrationPacketSyncDTO registrationPacketSyncDTO = new RegistrationPacketSyncDTO();
             registrationPacketSyncDTO
@@ -182,17 +189,19 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
                     .concat(RegistrationConstants.UNDER_SCORE)
                     .concat(String.valueOf(machineId));
 
-            syncPacketsToServer(CryptoUtil.encodeToURLSafeBase64(offlinePacketCryptoServiceImpl
-                    .encrypt(refId, javaObjectToJsonString(registrationPacketSyncDTO).getBytes())), "User", packetIdExists);
+            LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncRID()", "Time Taken for before encryption. Reference Id : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
+            String encodedString = CryptoUtil.encodeToURLSafeBase64(offlinePacketCryptoServiceImpl.encrypt(refId, javaObjectToJsonString(registrationPacketSyncDTO).getBytes()));
+            LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncRID()", "Time Taken for after encryption. Reference Id : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
+            syncPacketsToServer(encodedString, "User", packetIdExists, trackerRefId, startTime);
 
         }
     }
 
-        private void syncPacketsToServer(@NonNull String encodedString, @NonNull String triggerPoint, boolean packetIdExists)
+        private void syncPacketsToServer(@NonNull String encodedString, @NonNull String triggerPoint, boolean packetIdExists, String trackerRefId, Long startTime)
             throws Exception {
         try {
             HashMap<String, Object> response = (HashMap<String, Object>) restApiClient
-                    .post(packetIdExists ? RegistrationConstants.PACKET_SYNC_V2 : RegistrationConstants.PACKET_SYNC, javaObjectToJsonString(encodedString), triggerPoint);
+                    .post(packetIdExists ? RegistrationConstants.PACKET_SYNC_V2 : RegistrationConstants.PACKET_SYNC, javaObjectToJsonString(encodedString), triggerPoint, trackerRefId);
 
             if (response != null && response.get("errors") != null) {
                 throw new Exception(response.get("errors").toString());
@@ -208,42 +217,46 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
     public void uploadSyncedPacket(@NonNull List<PacketUploadDTO> packets, HashMap<String, PacketUploadResponseDTO> response) throws Exception {
         for (PacketUploadDTO packet : packets) {
             try {
-                uploadPacket(packet);
+                Long startTime = System.nanoTime();
+                LOGGER.debug("SESSION_ID", "PACKET_UPLOAD", "uploadSyncedPacket()", "Time Taken to start Packet Upload. Reference Id : " + packet.getPacketId() + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
+                uploadPacket(packet, startTime, packet.getPacketId());
             } catch (Exception e) {
                 throw e;
             }
         }
     }
 
-        public void uploadPacket(@NonNull PacketUploadDTO packetUpload) throws Exception {
+        public void uploadPacket(@NonNull PacketUploadDTO packetUpload, Long startTime, String trackerRefid) throws Exception {
         File packet = FileUtils.getFile(packetUpload.getPacketPath() +
                 RegistrationConstants.SLASH + packetUpload.getPacketId() + RegistrationConstants.ZIP_FILE_EXTENSION);
+            LOGGER.debug("SESSION_ID", "PACKET_UPLOAD", "uploadPacket()", "Time Taken to fetch file from local storage. Reference Id : " + trackerRefid + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
         try {
-            pushPacketWithRetryWrapper(packet);
+            pushPacketWithRetryWrapper(packet, startTime, trackerRefid);
+            LOGGER.debug("SESSION_ID", "PACKET_UPLOAD", "uploadPacket()", "Time Taken to complete packet upload. Reference Id : " + trackerRefid + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
         } catch (ConnectionException e) {
             e.printStackTrace();
         }
     }
 
-        private String pushPacketWithRetryWrapper(File packet) throws ConnectionException {
+        private String pushPacketWithRetryWrapper(File packet, Long startTime, String trackerRefid) throws ConnectionException {
         RetryCallback<String, ConnectionException> retryCallback = new RetryCallback<String, ConnectionException>() {
             @SneakyThrows
             @Override
             public String doWithRetry(RetryContext retryContext) {
-                return pushPacket(packet);
+                return pushPacket(packet, startTime, trackerRefid);
             }
         };
         return retryTemplate.execute(retryCallback);
     }
 
-        private String pushPacket(File packet) throws ConnectionException, Exception {
+        private String pushPacket(File packet, Long startTime, String trackerRefid) throws ConnectionException, Exception {
         if (!packet.exists())
             throw new Exception("Packet Not Found in the Path " + packet.getAbsolutePath());
 
         LinkedMultiValueMap<String, Object> map = new LinkedMultiValueMap<>();
         map.add(RegistrationConstants.PACKET_TYPE, new FileSystemResource(packet));
         HashMap<String, Object> response = (HashMap<String, Object>) restApiClient
-                    .post(RegistrationConstants.PACKET_UPLOAD, map, RegistrationConstants.JOB_TRIGGER_POINT_USER);
+                    .post(RegistrationConstants.PACKET_UPLOAD, map, RegistrationConstants.JOB_TRIGGER_POINT_USER, trackerRefid);
 
 
             if (response.get(RegistrationConstants.ERRORS) != null) {

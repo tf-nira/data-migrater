@@ -54,6 +54,8 @@ public class CommonUtil {
     @Getter
     private List<String> nonIdSchemaFieldsMap;
 
+    private String REFERENCE_ID = "COMMON_UTIL";
+
     public synchronized String generateRegistrationId(String centerId, String machineId) {
         return (String) ridGenerator.generateId(centerId, machineId);
     }
@@ -80,7 +82,7 @@ public class CommonUtil {
                     latestIdSchemaMap = objectMapper.readValue(jsonObject.get("response").toString(), new TypeReference<HashMap<String, Object>>() {});
                 }
             } else {
-                response= (ResponseWrapper) restApiClient.getApi(ApiName.LATEST_ID_SCHEMA, null, "", "", ResponseWrapper.class);
+                response= (ResponseWrapper) restApiClient.getApi(ApiName.LATEST_ID_SCHEMA, null, "", "", ResponseWrapper.class, REFERENCE_ID);
                 latestIdSchemaMap = (HashMap<String, Object> ) response.getResponse();
             }
         }

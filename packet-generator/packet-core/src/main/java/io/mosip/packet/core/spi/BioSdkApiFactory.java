@@ -4,5 +4,5 @@ import io.mosip.packet.core.dto.biosdk.BioSDKRequestWrapper;
 import io.mosip.packet.core.dto.biosdk.QualityCheckRequest;
 
 public interface BioSdkApiFactory {
-    public Double calculateBioQuality(BioSDKRequestWrapper bioSDKRequestWrapper) throws Exception;
+    public Double calculateBioQuality(BioSDKRequestWrapper bioSDKRequestWrapper, String trackerRefid) throws Exception;
 }

@@ -46,6 +46,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.mosip.packet.core.constant.GlobalConfig.IS_NETWORK_AVAILABLE;
 import static io.mosip.packet.core.constant.RegistrationConstants.APPLICATION_ID;
@@ -108,12 +109,14 @@ public class RestApiClient {
 	 * @throws Exception
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T getApi(URI uri, Class<?> responseType, LoginType loginType) throws Exception {
+	public <T> T getApi(URI uri, Class<?> responseType, LoginType loginType, String trackerRefId) throws Exception {
 		this.loginType = loginType;
 		T result = null;
 		try {
+			Long startTime = System.nanoTime();
 			result = (T) localRestTemplate.exchange(uri, HttpMethod.GET, setRequestHeader(null, null), responseType)
 					.getBody();
+			logger.debug("SESSION_ID", APPLICATION_NAME, "getApi()", "Time Taken for GET Api Call " + uri.toString() + " Reference Id: " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
 		} catch (Exception e) {
 			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
 					APPLICATION_ID, e.getMessage() + ExceptionUtils.getStackTrace(e));
@@ -136,14 +139,15 @@ public class RestApiClient {
 	 * @return the t
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T postApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass, LoginType loginType) throws Exception {
+	public <T> T postApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass, LoginType loginType, String trackerRefId) throws Exception {
 		this.loginType = loginType;
 		T result = null;
 		try {
 			logger.info(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
 					APPLICATION_ID, uri);
+			Long startTime = System.nanoTime();
 			result = (T) localRestTemplate.postForObject(uri, setRequestHeader(requestType, mediaType), responseClass);
-
+			logger.debug("SESSION_ID", APPLICATION_NAME, "postApi()", "Time Taken for POST Api Call " + uri.toString() + " Reference Id: " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
 		} catch (Exception e) {
 			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
 					APPLICATION_ID, e.getMessage() + ExceptionUtils.getStackTrace(e));
@@ -167,7 +171,7 @@ public class RestApiClient {
 	 * @return the t
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T patchApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass, LoginType loginType)
+	public <T> T patchApi(String uri, MediaType mediaType, Object requestType, Class<?> responseClass, LoginType loginType, String trackerRefId)
 			throws Exception {
 		this.loginType = loginType;
 		RestTemplate restTemplate;
@@ -175,8 +179,9 @@ public class RestApiClient {
 		try {
 			logger.info(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
 					APPLICATION_ID, uri);
+			Long startTime = System.nanoTime();
 			result = (T) localRestTemplate.patchForObject(uri, setRequestHeader(requestType, mediaType), responseClass);
-
+			logger.debug("SESSION_ID", APPLICATION_NAME, "patchApi()", "Time Taken for PATCH Api Call " + uri.toString() + " Reference Id: " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
 		} catch (Exception e) {
 
 			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
@@ -187,8 +192,8 @@ public class RestApiClient {
 		return result;
 	}
 
-	public <T> T patchApi(String uri, Object requestType, Class<?> responseClass, LoginType loginType) throws Exception {
-		return patchApi(uri, null, requestType, responseClass, loginType);
+	public <T> T patchApi(String uri, Object requestType, Class<?> responseClass, LoginType loginType, String trackerRefId) throws Exception {
+		return patchApi(uri, null, requestType, responseClass, loginType, trackerRefId);
 	}
 
 	/**
@@ -208,16 +213,17 @@ public class RestApiClient {
 	 *             the exception
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> T putApi(String uri, Object requestType, Class<?> responseClass, MediaType mediaType, LoginType loginType) throws Exception {
+	public <T> T putApi(String uri, Object requestType, Class<?> responseClass, MediaType mediaType, LoginType loginType, String trackerRefId) throws Exception {
 		this.loginType = loginType;
 		T result = null;
 		ResponseEntity<T> response = null;
 		try {
 			logger.info(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
 					APPLICATION_ID, uri);
-
+			Long startTime = System.nanoTime();
 			response = (ResponseEntity<T>) localRestTemplate.exchange(uri, HttpMethod.PUT,
 					setRequestHeader(requestType, mediaType), responseClass);
+			logger.debug("SESSION_ID", APPLICATION_NAME, "putApi()", "Time Taken for PUT Api Call " + uri.toString() + " Reference Id: " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
 			result = response.getBody();
 		} catch (Exception e) {
 
@@ -326,7 +332,9 @@ public class RestApiClient {
 					StringEntity postingString = new StringEntity(gson.toJson(tokenRequestDTO));
 					post.setEntity(postingString);
 					post.setHeader("Content-type", "application/json");
+					Long startTime = System.nanoTime();
 					HttpResponse response = httpClient.execute(post);
+					logger.debug("SESSION_ID", APPLICATION_NAME, "getToken()", "Time Taken for AUTH Api Call " + post.getURI().toString() + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
 					org.apache.http.HttpEntity entity = response.getEntity();
 					String responseBody = EntityUtils.toString(entity, "UTF-8");
 					if(!loginType.equals(LoginType.USER)) {
@@ -423,7 +431,7 @@ public class RestApiClient {
 		return request;
 	}
 
-	public <T> T  invoke(URI uri, HttpMethod httpMethod, HttpEntity<?> entity, Class<?> responseClass, SimpleClientHttpRequestFactory factory) throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException, IOException {
+	public <T> T  invoke(URI uri, HttpMethod httpMethod, HttpEntity<?> entity, Class<?> responseClass, SimpleClientHttpRequestFactory factory, String trackerRefId) throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException, IOException {
 		RestTemplate restTemplate;
 		T result = null;
 		try {
@@ -432,8 +440,10 @@ public class RestApiClient {
 				restTemplate.setRequestFactory(factory);
 
 	//		entity.add("Cookie", getToken());
-
+			Long startTime = System.nanoTime();
 			result = (T) restTemplate.exchange(uri, httpMethod, entity, responseClass).getBody();
+			logger.debug("SESSION_ID", APPLICATION_NAME, "invoke()", "Time Taken for "+ httpMethod.name() + " Api Call " + uri.toString() + " Reference Id: " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
+
 		} catch (Exception e) {
 			logger.error(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
 					APPLICATION_ID, e.getMessage() + ExceptionUtils.getStackTrace(e));

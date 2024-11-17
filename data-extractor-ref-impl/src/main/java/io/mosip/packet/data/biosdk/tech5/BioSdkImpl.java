@@ -26,7 +26,7 @@ public class BioSdkImpl implements BioSdkApiFactory {
     private static final Logger LOGGER = DataProcessLogger.getLogger(BioSdkImpl.class);
 
     @Override
-    public Double calculateBioQuality(BioSDKRequestWrapper bioSDKRequestWrapper) throws Exception {
+    public Double calculateBioQuality(BioSDKRequestWrapper bioSDKRequestWrapper, String trakerRefid) throws Exception {
         SegmentDto segment = new SegmentDto();
         segment.setSegments(new ArrayList<>());
         segment.getSegments().add(bioSDKRequestWrapper.getSegments().get(0));
@@ -42,9 +42,7 @@ public class BioSdkImpl implements BioSdkApiFactory {
         bioSDKRequest.setVersion("1.0");
         bioSDKRequest.setRequest(encodedRequest);
 
-        LOGGER.info("Request Send Time for SDK " + bioSDKRequestWrapper.getBiometricField() + " : " + new Date());
-        ResponseWrapper response= (ResponseWrapper) restApiClient.postApi(ApiName.BIOSDK_QUALITY_CHECK, null, "", bioSDKRequest, ResponseWrapper.class);
-        LOGGER.info("Response Received Time for SDK " + bioSDKRequestWrapper.getBiometricField() + " : " + new Date());
+        ResponseWrapper response= (ResponseWrapper) restApiClient.postApi(ApiName.BIOSDK_QUALITY_CHECK, null, "", bioSDKRequest, ResponseWrapper.class, trakerRefid);
         if(WRITE_BIOSDK_RESPONSE) {
             HashMap<String, String> csvMap = (HashMap<String, String>) bioSDKRequestWrapper.getInputObject();
             csvMap.put(bioSDKRequestWrapper.getBiometricField(),  (new Gson()).toJson(response));

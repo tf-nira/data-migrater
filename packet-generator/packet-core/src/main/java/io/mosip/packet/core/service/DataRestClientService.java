@@ -35,10 +35,10 @@ public interface DataRestClientService<T> {
 	 *             the apis resource access exception
 	 */
 	public T getApi(ApiName apiName, List<String> pathsegments, String queryParam, String queryParamValue,
-					Class<?> responseType) throws ApisResourceAccessException;
+					Class<?> responseType, String trackerRefId) throws ApisResourceAccessException;
 
 	public T getApi(ApiName apiName, List<String> pathsegments, List<String> queryParam, List<Object> queryParamValue,
-					Class<?> responseType) throws ApisResourceAccessException;
+					Class<?> responseType, String trackerRefId) throws ApisResourceAccessException;
 
 	/**
 	 * Post api.
@@ -57,16 +57,16 @@ public interface DataRestClientService<T> {
 	 * @throws ApisResourceAccessException
 	 *             the apis resource access exception
 	 */
-	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType)
+	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, String trackerRefId)
 			throws ApisResourceAccessException;
 
-	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired)
+	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired, String trackerRefId)
 			throws ApisResourceAccessException;
 
-	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, MediaType mediaType, boolean isAuthRequired)
+	public T postApi(ApiName apiName, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, MediaType mediaType, boolean isAuthRequired, String trackerRefId)
 			throws ApisResourceAccessException;
 
-	public T postApi(String apiHostIpPort, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired, ApiName apiName)
+	public T postApi(String apiHostIpPort, String queryParam, String queryParamValue, T requestedData, Class<?> responseType, boolean isAuthRequired, ApiName apiName, String trackerRefId)
 			throws ApisResourceAccessException;
 
 	/**
@@ -90,7 +90,7 @@ public interface DataRestClientService<T> {
 	 *             the apis resource access exception
 	 */
 	public T postApi(ApiName apiName, String queryParamName, String queryParamValue, T requestedData,
-			Class<?> responseType, MediaType mediaType) throws ApisResourceAccessException ;
+			Class<?> responseType, MediaType mediaType, String trackerRefId) throws ApisResourceAccessException ;
 	/**
 	 * Post api.
 	 *
@@ -112,7 +112,7 @@ public interface DataRestClientService<T> {
 	 */
 
 	public T postApi(ApiName apiName, List<String> pathsegments, String queryParam, String queryParamValue,
-			T requestedData, Class<?> responseType) throws ApisResourceAccessException;
+			T requestedData, Class<?> responseType, String trackerRefId) throws ApisResourceAccessException;
 
 	/**
 	 * Post Api
@@ -128,13 +128,13 @@ public interface DataRestClientService<T> {
 	 * @throws ApisResourceAccessException
 	 */
 	public T postApi(ApiName apiName, MediaType mediaType, List<String> pathsegments, List<String> queryParam, List<Object> queryParamValue,
-					 T requestedData, Class<?> responseType) throws ApisResourceAccessException;
+					 T requestedData, Class<?> responseType, String trackerRefId) throws ApisResourceAccessException;
 
-	public Map<String, Object> invokeURL(RequestHTTPDTO requestHTTPDTO) throws Exception;
+	public Map<String, Object> invokeURL(RequestHTTPDTO requestHTTPDTO, String trackerRefId) throws Exception;
 
 	public T putApi(ApiName apiName, String queryParamName, String queryParamValue, T requestedData,
-					 Class<?> responseType, MediaType mediaType) throws ApisResourceAccessException ;
+					 Class<?> responseType, MediaType mediaType, String trackerRefId) throws ApisResourceAccessException ;
 
 	public T patchApi(ApiName apiName, List<String> pathsegments, String queryParam, String queryParamValue,
-					  T requestedData, Class<?> responseType) throws ApisResourceAccessException;
+					  T requestedData, Class<?> responseType, String trackerRefId) throws ApisResourceAccessException;
 }

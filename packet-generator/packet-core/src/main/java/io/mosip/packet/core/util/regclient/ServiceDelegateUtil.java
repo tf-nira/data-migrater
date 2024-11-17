@@ -74,7 +74,7 @@ public class ServiceDelegateUtil {
 	 * @throws ConnectionException
 	 *             when client error exception from server / server exception
 	 */
-	public Object get(String serviceName, Map<String, String> requestParams, boolean hasPathParams, String triggerPoint)
+	public Object get(String serviceName, Map<String, String> requestParams, boolean hasPathParams, String triggerPoint, String trackerRefId)
 			throws Throwable {
 
 		LOGGER.debug("Get method has been called - {}", serviceName);
@@ -112,7 +112,8 @@ public class ServiceDelegateUtil {
 			/** Set URI */
 			setURI(requestHTTPDTO, queryParams, url);
 
-			responseMap = restClientUtil.invokeURL(requestHTTPDTO);
+			responseMap = restClientUtil.invokeURL(requestHTTPDTO, trackerRefId);
+
 
 		}  catch (RestClientException e) {
 			LOGGER.error(e.getMessage(), e);
@@ -142,7 +143,7 @@ public class ServiceDelegateUtil {
 	 * @throws ConnectionException
 	 *             when client error, server error, access error
 	 */
-	public Object post(String serviceName, Object object, String triggerPoint) throws Exception {
+	public Object post(String serviceName, Object object, String triggerPoint, String trackerRefId) throws Exception {
 		LOGGER.debug("Post method called - {} ", serviceName);
 
 		RequestHTTPDTO requestDto;
@@ -158,7 +159,7 @@ public class ServiceDelegateUtil {
 			requestDto.setTriggerPoint(triggerPoint);
 			requestDto.setRequestSignRequired(
 					Boolean.valueOf(getEnvironmentProperty(serviceName, RegistrationConstants.REQUEST_SIGN_REQUIRED)));
-			responseMap = restClientUtil.invokeURL(requestDto);
+			responseMap = restClientUtil.invokeURL(requestDto, trackerRefId);
 		} catch (RestClientException e) {
 			LOGGER.error(e.getMessage(), e);
 			throw e;

@@ -57,25 +57,22 @@ public class BQATSdkImpl implements BioSdkApiFactory {
     }
 
     @Override
-    public Double calculateBioQuality(BioSDKRequestWrapper bioSDKRequestWrapper) throws Exception {
+    public Double calculateBioQuality(BioSDKRequestWrapper bioSDKRequestWrapper, String trackerRefId) throws Exception {
         Long startTime = System.nanoTime();
-        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Entering BIOSDK for Quality Calculation" + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-
         BQATRequest request = new BQATRequest();
         request.setModality(BQATModalityType.valueOf(bioSDKRequestWrapper.getBiometricType().toUpperCase()).getModality());
         request.setType(BQATFileType.valueOf(bioSDKRequestWrapper.getFormat().toUpperCase()).getType());
         request.setData(Base64.getEncoder().encodeToString(((BIR)bioSDKRequestWrapper.getSegments().get(0)).getBdb()));
         request.setId(UUID.randomUUID().toString());
         request.setTimestamp(LocalDateTime.now(ZoneId.of("UTC")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")));
-        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Request Preparation Completed " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
+        LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "calculateBioQuality()", "Request Preparation Completed. Reference Id : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
         String queryParameterValue = portRange.removeFirst();
         portRange.addLast(queryParameterValue);
         String url = env.getProperty(ApiName.BQAT_BIOSDK_QUALITY_CHECK.toString());
         url = url.replace("{PORT_NO}", queryParameterValue);
-        BQATResponse response= (BQATResponse) restApiClient.postApi(url, null, null, request, BQATResponse.class, false, ApiName.BQAT_BIOSDK_QUALITY_CHECK);
+        BQATResponse response= (BQATResponse) restApiClient.postApi(url, null, null, request, BQATResponse.class, false, ApiName.BQAT_BIOSDK_QUALITY_CHECK, trackerRefId);
         HashMap<String, Object> bioSDKResponse = (HashMap<String, Object>) response.getResults();
-        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Rest Call Executed Successfully " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
-        LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Time Taken to call BIOSDK is " + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
+        LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "calculateBioQuality()", "Rest Call Executed Successfully. Reference Id : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS)+ " ms)");
 
         if(bioSDKResponse != null) {
             try {
@@ -100,13 +97,13 @@ public class BQATSdkImpl implements BioSdkApiFactory {
                 else
                     return Double.valueOf(0);
             } finally {
-                LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Existing BIOSDK for Quality Calculation" + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
+                LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "calculateBioQuality()", "Existing BIOSDK for Quality Calculation. Reference Id : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS)+ " ms)");
 
                 if(WRITE_BIOSDK_RESPONSE) {
                     HashMap<String, String> csvMap = (HashMap<String, String>) bioSDKRequestWrapper.getInputObject();
                     csvMap.put(bioSDKRequestWrapper.getBiometricField(),  (new Gson()).toJson(bioSDKResponse));
                 }
-                LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Writing Response into CSVMAP" + TimeUnit.SECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS));
+                LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "calculateBioQuality()", "Writing Response into CSVMAP. Reference Id : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS)+ " ms)");
 
             }
         } else {
