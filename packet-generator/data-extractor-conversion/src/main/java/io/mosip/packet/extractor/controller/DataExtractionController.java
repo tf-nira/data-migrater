@@ -10,6 +10,7 @@ import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.DBImportResponse;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
+import io.mosip.packet.core.dto.dbimport.PacketStatusRequest;
 import io.mosip.packet.core.dto.packet.RegistrationIdRequest;
 import io.mosip.packet.core.exception.ServiceError;
 import io.mosip.packet.core.logger.DataProcessLogger;
@@ -221,4 +222,21 @@ public class DataExtractionController {
         return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
     }
 
+    @GetMapping(value = "/getPacketStatus", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ResponseWrapper> getPacketStatus(@RequestBody RequestWrapper<PacketStatusRequest> request) {
+        ResponseWrapper<String> responseWrapper = new ResponseWrapper();
+        try {
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: entry");
+            responseWrapper.setResponse(dataExtractionService.getPacketStatus(request.getRequest()));
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: exit");
+        }  catch (Exception e) {
+            e.printStackTrace();
+            ServiceError error = new ServiceError();
+            error.setErrorCode("IX-0001");
+            error.setMessage("Error : " + e.getMessage());
+            responseWrapper.getErrors().add(error);
+            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, error.getErrorCode(), error.getMessage());
+        }
+        return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
+    }
 }

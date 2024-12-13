@@ -44,10 +44,15 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import javax.annotation.PostConstruct;
 
 import static io.mosip.packet.core.constant.GlobalConfig.SESSION_KEY;
 import static io.mosip.packet.core.constant.GlobalConfig.*;
@@ -69,6 +74,12 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Value("${mosip.packet.uploader.enable.only.packet.upload:false}")
     private boolean enableOnlyPacketUploader;
+    
+    @Value("${mosip.packet.on-demand.nin.table.name}")
+    private String onDemandNINTableName;
+    
+    @Value("${mosip.packet.on-demand.nin.column.name}")
+    private String onDemandNINColumnName;
 
     @Autowired
     ValidationUtil validationUtil;
@@ -101,6 +112,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     private boolean isUploadInProgress = false;
 
     private Map<String, HashMap<String, String>> fieldsCategoryMap = new HashMap<>();
+    
+    private DBImportRequest onDemandDbImportRequest;
 
     @Autowired
     private BioConvertorApiFactory bioConvertorApiFactory;
@@ -122,6 +135,19 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Autowired
     private Activity activity;
+    
+    @PostConstruct
+    public void runAtStartup() {
+    	try {
+			FileInputStream io = new FileInputStream("./ApiRequest.json");
+			String requestJson = new String(io.readAllBytes(), StandardCharsets.UTF_8);
+			ObjectMapper mapper = new ObjectMapper();
+			RequestWrapper<DBImportRequest> request = mapper.readValue(requestJson, new TypeReference<RequestWrapper<DBImportRequest>>() {});
+			onDemandDbImportRequest = request.getRequest();
+		} catch (IOException e) {
+			LOGGER.error("Unable to read the ApiRequest.json: ", e);
+		} 
+    }
 
     private ObjectMapper mapper = new ObjectMapper();
 
@@ -350,6 +376,62 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public String refreshQualityAnalysisData() throws Exception {
         qualityWriterFactory.preDestroyProcess();
         return "Quality Analysis Data Refresh Successfully";
+    }
+    
+    @Override
+    public String getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception {
+    	LOGGER.info("Checking packet status");
+    	
+    	boolean isRecordPresent = trackerUtil.isRecordPresent(packetStatusRequest.getNin(), GlobalConfig.getActivityName());
+    	
+    	if (isRecordPresent) {
+    		LOGGER.info("Packet already migrated");
+    		return "Packet Migrated";
+    	}
+    	else {
+    		LOGGER.info("Packet not migrated, starting packet creation");
+    		
+            List<TableRequestDto> tableRequestDtoList = onDemandDbImportRequest.getTableDetails();
+            
+            if (onDemandDbImportRequest == null) {
+            	LOGGER.error("Unable to load the ApiRequest.json");
+            	throw new Exception("Unable to load the ApiRequest.json");
+            }
+            
+            TableRequestDto tableRequestDto = tableRequestDtoList.stream()
+            		.filter(t -> t.getTableName().equalsIgnoreCase(onDemandNINTableName))
+            		.findAny()
+            		.orElseThrow(() -> {
+            			LOGGER.error("Invalid table name: {} or table details not available in the APIRequest.json file", onDemandNINTableName);
+            			return new Exception("Invalid table name: " + onDemandNINTableName + " or table details not available in the APIRequest.json file");
+            		});
+            
+            if (tableRequestDto.getFilters() == null) {
+            	tableRequestDto.setFilters(new ArrayList<QueryFilter>());
+            }
+            
+			List<QueryFilter> filters = tableRequestDto.getFilters();
+			Optional<QueryFilter> existingFilter = filters.stream()
+					.filter(f -> f.getFilterField().equalsIgnoreCase(onDemandNINColumnName)).findAny();
+			
+			if (existingFilter.isPresent()) {
+				LOGGER.info("Updating nin filter");
+				QueryFilter filter = existingFilter.get();
+				filter.setFromValue(packetStatusRequest.getNin());
+			} else {
+				LOGGER.info("Adding nin filter");
+				QueryFilter filter = new QueryFilter();
+				filter.setFilterField(onDemandNINColumnName);
+				filter.setFilterCondition(FilterCondition.EQUAL);
+				filter.setFromValue(packetStatusRequest.getNin());
+				filters.add(filter);
+			}
+			
+			LOGGER.info("Starting packet creation");
+
+    		createPacketFromDataBase(onDemandDbImportRequest);
+    		return "Packet creation started";
+    	}
     }
 
     @Override
