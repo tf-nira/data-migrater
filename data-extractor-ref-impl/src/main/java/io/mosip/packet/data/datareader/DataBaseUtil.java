@@ -455,6 +455,86 @@ public class DataBaseUtil implements DataReader {
             throw e;
         }
     }
+    
+    @Override
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, boolean isPacketCreationProcess) throws Exception {
+    	LOGGER.info("Reading data from database for given nin");
+    	
+    	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
+        try {
+            if (conn != null) {
+                initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
+                
+                PreparedStatement statement1 = null;
+                ResultSet scrollableResultSet = null;
+                
+                if(IS_TRACKER_REQUIRED)
+                    trackerUtil.closeStatement();
+                
+                List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
+                Collections.sort(tableRequestDtoList);
+                TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
+                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                scrollableResultSet = statement1.executeQuery();
+
+                if (scrollableResultSet.first()) {
+                    try {
+                    	LOGGER.info("extracting data to desired format");
+                        Map<String, Object> resultData = extractResultSet(scrollableResultSet);
+
+                        populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
+
+                        if (!isPacketCreationProcess || !trackerUtil.isRecordPresent(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                        	for (int i = 1; i < tableRequestDtoList.size(); i++) {
+                                PreparedStatement statement2 = null;
+                                ResultSet resultSet1 = null;
+                                try {
+                                    TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
+                                    statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                    resultSet1 = statement2.executeQuery();
+
+                                    Map<String, Object> resultData1 = new HashMap<>();
+                                    if (resultSet1 != null && resultSet1.next()) {
+                                        resultData1.putAll(extractResultSet(resultSet1));
+                                    }
+
+                                    if (resultData1 != null)
+                                        populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataMap, fieldsCategoryMap, false);
+                                } finally {
+                                    if (resultSet1 != null)
+                                        resultSet1.close();
+
+                                    if (statement2 != null)
+                                        statement2.close();
+                                }
+                            }
+                        } else {
+                        	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
+                        	throw new Exception("Packet already processed");
+                        }
+                    } catch (Exception e) {
+                        LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
+                        throw e;
+                    } finally {
+                        if (scrollableResultSet != null)
+                            scrollableResultSet.close();
+
+                        if (statement1 != null)
+                            statement1.close();
+                    }
+                } else {
+                	LOGGER.info("No data found for given nin in database");
+                }
+            } else {
+                throw new SQLException("Unable to Connect With Database. Please check the Configuration");
+            }
+        } catch (Exception e) {
+            throw e;
+        }
+        
+        return dataMap; 
+    }
+
 
     @Override
     public void connectDataReader(DBImportRequest dbImportRequest) throws Exception {

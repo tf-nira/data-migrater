@@ -5,6 +5,7 @@ import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.GlobalConfig;
+import io.mosip.packet.core.dto.NINDetailsResponseDto;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
@@ -229,6 +230,24 @@ public class DataExtractionController {
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: entry");
             responseWrapper.setResponse(dataExtractionService.getPacketStatus(request.getRequest()));
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: exit");
+        }  catch (Exception e) {
+            e.printStackTrace();
+            ServiceError error = new ServiceError();
+            error.setErrorCode("IX-0001");
+            error.setMessage("Error : " + e.getMessage());
+            responseWrapper.getErrors().add(error);
+            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, error.getErrorCode(), error.getMessage());
+        }
+        return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
+    }
+    
+    @GetMapping(value = "/getNINDetails", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ResponseWrapper> getNINDetails(@RequestBody RequestWrapper<PacketStatusRequest> request) {
+        ResponseWrapper<NINDetailsResponseDto> responseWrapper = new ResponseWrapper();
+        try {
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getNINDetails():: entry");
+            responseWrapper.setResponse(dataExtractionService.getNINDetails(request.getRequest()));
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getNINDetails():: exit");
         }  catch (Exception e) {
             e.printStackTrace();
             ServiceError error = new ServiceError();

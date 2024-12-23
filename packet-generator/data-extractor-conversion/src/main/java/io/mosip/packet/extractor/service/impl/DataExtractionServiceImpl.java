@@ -13,6 +13,7 @@ import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
 import io.mosip.packet.core.dto.DataPostProcessorResponseDto;
 import io.mosip.packet.core.dto.DataProcessorResponseDto;
+import io.mosip.packet.core.dto.NINDetailsResponseDto;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.biosdk.BioSDKRequestWrapper;
@@ -38,6 +39,8 @@ import io.mosip.packet.extractor.util.ValidationUtil;
 import io.mosip.packet.manager.util.PacketCreator;
 import io.mosip.packet.manager.util.mock.sbi.devicehelper.MockDeviceUtil;
 import lombok.SneakyThrows;
+
+import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -138,14 +141,30 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     
     @PostConstruct
     public void runAtStartup() {
-    	try {
-			FileInputStream io = new FileInputStream("./ApiRequest.json");
-			String requestJson = new String(io.readAllBytes(), StandardCharsets.UTF_8);
-			ObjectMapper mapper = new ObjectMapper();
-			RequestWrapper<DBImportRequest> request = mapper.readValue(requestJson, new TypeReference<RequestWrapper<DBImportRequest>>() {});
-			onDemandDbImportRequest = request.getRequest();
-		} catch (IOException e) {
-			LOGGER.error("Unable to read the ApiRequest.json: ", e);
+    	if (!IS_RUNNING_AS_BATCH) {
+			try {
+				LOGGER.info("Reading ApiRequest.json for on demand");
+				FileInputStream io = new FileInputStream("./ApiRequest.json");
+				String requestJson = new String(io.readAllBytes(), StandardCharsets.UTF_8);
+				ObjectMapper mapper = new ObjectMapper();
+				RequestWrapper<DBImportRequest> request = mapper.readValue(requestJson,
+						new TypeReference<RequestWrapper<DBImportRequest>>() {
+						});
+				onDemandDbImportRequest = request.getRequest();
+
+				List<ValidatorEnum> enumList = new ArrayList<>();
+				enumList.add(ValidatorEnum.ID_SCHEMA_VALIDATOR);
+				enumList.add(ValidatorEnum.FILTER_VALIDATOR);
+				enumList.add(ValidatorEnum.BIOMETRIC_FORMAT_VALIDATOR);
+
+				mockDeviceUtil.resetDevices();
+				mockDeviceUtil.initDeviceHelpers();
+				commonUtil.initialize(onDemandDbImportRequest);
+				validationUtil.validateRequest(onDemandDbImportRequest, enumList);
+				populateTableFields(onDemandDbImportRequest);
+			} catch (Exception e) {
+				LOGGER.error("Error in runAtStartup: ", e);
+			}
 		} 
     }
 
@@ -382,56 +401,142 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public String getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception {
     	LOGGER.info("Checking packet status");
     	
-    	boolean isRecordPresent = trackerUtil.isRecordPresent(packetStatusRequest.getNin(), GlobalConfig.getActivityName());
+    	updateNinFilter(packetStatusRequest);
+		
+		LOGGER.info("Starting packet creation");
+
+		processPacket(true);
+		return "Packet creation started";
+    }
+    
+    @Override
+    public NINDetailsResponseDto getNINDetails(PacketStatusRequest packetStatusRequest) throws Exception {
+    	LOGGER.info("Getting packet details for nin");
     	
-    	if (isRecordPresent) {
-    		LOGGER.info("Packet already migrated");
-    		return "Packet Migrated";
-    	}
-    	else {
-    		LOGGER.info("Packet not migrated, starting packet creation");
-    		
-            List<TableRequestDto> tableRequestDtoList = onDemandDbImportRequest.getTableDetails();
-            
-            if (onDemandDbImportRequest == null) {
-            	LOGGER.error("Unable to load the ApiRequest.json");
-            	throw new Exception("Unable to load the ApiRequest.json");
-            }
-            
-            TableRequestDto tableRequestDto = tableRequestDtoList.stream()
-            		.filter(t -> t.getTableName().equalsIgnoreCase(onDemandNINTableName))
-            		.findAny()
-            		.orElseThrow(() -> {
-            			LOGGER.error("Invalid table name: {} or table details not available in the APIRequest.json file", onDemandNINTableName);
-            			return new Exception("Invalid table name: " + onDemandNINTableName + " or table details not available in the APIRequest.json file");
-            		});
-            
-            if (tableRequestDto.getFilters() == null) {
-            	tableRequestDto.setFilters(new ArrayList<QueryFilter>());
-            }
-            
-			List<QueryFilter> filters = tableRequestDto.getFilters();
-			Optional<QueryFilter> existingFilter = filters.stream()
-					.filter(f -> f.getFilterField().equalsIgnoreCase(onDemandNINColumnName)).findAny();
+    	updateNinFilter(packetStatusRequest);
+
+		return processPacket(false);
+    }
+    
+    private void updateNinFilter(PacketStatusRequest packetStatusRequest) throws Exception {
+    	if (onDemandDbImportRequest == null) {
+			LOGGER.error("Unable to load the ApiRequest.json");
+			throw new Exception("Unable to load the ApiRequest.json");
+		}
+
+		List<TableRequestDto> tableRequestDtoList = onDemandDbImportRequest.getTableDetails();
+
+		TableRequestDto tableRequestDto = tableRequestDtoList.stream()
+				.filter(t -> t.getTableName().equalsIgnoreCase(onDemandNINTableName)).findAny().orElseThrow(() -> {
+					LOGGER.error(
+							"Invalid table name: {} or table details not available in the APIRequest.json file",
+							onDemandNINTableName);
+					return new Exception("Invalid table name: " + onDemandNINTableName
+							+ " or table details not available in the APIRequest.json file");
+				});
+
+		if (tableRequestDto.getFilters() == null) {
+			tableRequestDto.setFilters(new ArrayList<QueryFilter>());
+		}
+
+		List<QueryFilter> filters = tableRequestDto.getFilters();
+		Optional<QueryFilter> existingFilter = filters.stream()
+				.filter(f -> f.getFilterField().equalsIgnoreCase(onDemandNINColumnName)).findAny();
+
+		if (existingFilter.isPresent()) {
+			LOGGER.info("Updating nin filter");
+			QueryFilter filter = existingFilter.get();
+			filter.setFromValue(packetStatusRequest.getNin());
+		} else {
+			LOGGER.info("Adding nin filter");
+			QueryFilter filter = new QueryFilter();
+			filter.setFilterField(onDemandNINColumnName);
+			filter.setFieldType(FieldType.VARCHAR);
+			filter.setFilterCondition(FilterCondition.EQUAL);
+			filter.setFromValue(packetStatusRequest.getNin());
+			filters.add(filter);
+		}
+    }
+    
+    private NINDetailsResponseDto processPacket(boolean isPacketCreationProcess) throws Exception {
+    	NINDetailsResponseDto response = new NINDetailsResponseDto();
+
+    	try {
+			List<ValidatorEnum> enumList = new ArrayList<>();
+			enumList.add(ValidatorEnum.FILTER_VALIDATOR);
+
+			ResultSetter setter = new ResultSetter() {
+                @SneakyThrows
+                @Override
+                public void setResult(Object obj) {
+                    if (isPacketCreationProcess) {
+                    	ResultDto resultDto = (ResultDto) obj;
+                        TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+                        trackerRequestDto.setRegNo(resultDto.getRegNo());
+                        trackerRequestDto.setRefId(resultDto.getRefId());
+                        trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+                        trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+                        trackerRequestDto.setSessionKey(SESSION_KEY);
+                        trackerRequestDto.setStatus(resultDto.getStatus().toString());
+                        trackerRequestDto.setComments(resultDto.getComments());
+                        trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
+                        trackerUtil.addTrackerEntry(trackerRequestDto);
+                        trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(), onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY, GlobalConfig.getActivityName());
+                    }
+                }
+            };
 			
-			if (existingFilter.isPresent()) {
-				LOGGER.info("Updating nin filter");
-				QueryFilter filter = existingFilter.get();
-				filter.setFromValue(packetStatusRequest.getNin());
-			} else {
-				LOGGER.info("Adding nin filter");
-				QueryFilter filter = new QueryFilter();
-				filter.setFilterField(onDemandNINColumnName);
-				filter.setFilterCondition(FilterCondition.EQUAL);
-				filter.setFromValue(packetStatusRequest.getNin());
-				filters.add(filter);
+			LOGGER.info("Validating request for filters");
+			validationUtil.validateRequest(onDemandDbImportRequest, enumList);
+			
+			dataReaderApiFactory.connectDataReader(onDemandDbImportRequest);
+			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketCreationProcess);
+			
+			if (dataHashMap == null || dataHashMap.isEmpty()) {
+				throw new Exception("No data found for given nin");
 			}
 			
-			LOGGER.info("Starting packet creation");
+			if (!isPacketCreationProcess) {
+				LOGGER.info("Processing data to get packet details");
+		        
+		        DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
+		        
+		        PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
+		        
+		        response.setDemographics(packetDto.getFields());
+		        response.setDocuments(packetDto.getDocuments());
+		        LOGGER.info("Fetched details for nin");
+			} else {
+				Long startTime = System.nanoTime();
+                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+                trackerRequestDto.setRegNo(null);
+                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+                trackerRequestDto.setSessionKey(SESSION_KEY);
+                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
+                trackerRequestDto.setComments("Object Ready For Processing");
+                trackerUtil.addTrackerEntry(trackerRequestDto);
+                
+                LOGGER.info("Processing data");
+                DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
 
-    		createPacketFromDataBase(onDemandDbImportRequest);
-    		return "Packet creation started";
-    	}
+                LOGGER.info("Packet creation started");
+                DataPostProcessorResponseDto postProcessorResponseDto = dataPostProcessorApiFactory.postProcess(processObject, setter, startTime);
+                
+                LOGGER.info("Packet sync and upload started");
+                dataExporterApiFactory.export(postProcessorResponseDto, (new Date()).getTime(), setter);
+                
+                LOGGER.info("Packet uploaded successfully");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		} finally {
+            dataReaderApiFactory.disconnectDataReader();
+        }
+    	
+    	return response;
     }
 
     @Override

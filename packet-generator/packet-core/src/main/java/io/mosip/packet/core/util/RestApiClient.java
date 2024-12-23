@@ -113,6 +113,8 @@ public class RestApiClient {
 		this.loginType = loginType;
 		T result = null;
 		try {
+			logger.info(LoggerFileConstant.SESSIONID.toString(), APPLICATION_NAME,
+					APPLICATION_ID, uri.toString());
 			Long startTime = System.nanoTime();
 			result = (T) localRestTemplate.exchange(uri, HttpMethod.GET, setRequestHeader(null, null), responseType)
 					.getBody();

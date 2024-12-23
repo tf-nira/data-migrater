@@ -9,6 +9,7 @@ import java.util.Map;
 
 public interface DataReader {
     public void readData(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, ResultSetter setter) throws Exception;
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, boolean isPacketCreationProcess) throws Exception;
     public void connectDataReader(DBImportRequest dbImportRequest) throws Exception;
     public void disconnectDataReader();
 }

@@ -41,6 +41,11 @@ public class DataReaderProvider implements DataReaderApiFactory {
     public void readData(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, ResultSetter setter) throws Exception {
         getReader().readData(dbImportRequest, dataHashMap, fieldsCategoryMap, setter);
     }
+    
+    @Override
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, boolean isPacketCreationProcess) throws Exception {
+        return getReader().readDataOnDemand(dbImportRequest, dataHashMap, fieldsCategoryMap, isPacketCreationProcess);
+    }
 
     @Override
     public void connectDataReader(DBImportRequest dbImportRequest) throws Exception {
