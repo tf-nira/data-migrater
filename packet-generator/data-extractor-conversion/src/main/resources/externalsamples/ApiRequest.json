@@ -1,189 +1,569 @@
 {
-  "id": "string",
-  "metadata": {},
-  "request": {
-    "dbType": "MSSQL",
-    "url": "localhost\\SQLEXPRESS",
-    "port": "55630",
-    "databaseName": "MOSIP_NEW",
-    "userId": "trialblazerseee",
-    "password": "ka09071989",
-    "process": "MIGRATOR",
-    "tableDetails": [
-      {
+	"id": "string",
+	"metadata": {},
+	"request": {
+		"dbType": "ORACLE",
+		"url": "localhost",
+		"port": "1521",
+		"databaseName": "FREE",
+		"userId": "C##NIRAUSER",
+		"password": "Test123",
+		"process": "MIGRATOR",
+		"tableDetails": [
+			{
         "queryType": "SQL_QUERY",
         "executionOrderSequence": 2,
-        "tableName": "dbo.POC_DOCUMENTS",
-        "sqlQuery": "SELECT poc_dt_id, cit_id, doc_ref_no, 'JPG' AS doc_format, document FROM DBO.POC_DOCUMENTS WHERE cit_id = ${DEMO:CITIZEN_ID}"
+        "tableName": "ZTMP_MOSIP_SDMS_DOC",
+        "sqlQuery": "SELECT APPLICATION_ID,serial_number,DOC_REF_NO, 'JPG' AS doc_format, SCAN,DOCUMENT_TYPE_OTHER FROM ZTMP_MOSIP_SDMS_DOC WHERE APPLICATION_ID = ${DEMO:APPLICATION_ID}"
       },
-      {
-        "queryType": "TABLE",
-        "executionOrderSequence": 1,
-        "tableName": "dbo.CITIZEN",
-        "nonIdSchemaFields": [
-          "CITIZEN_ID"
-        ],
-        "filters" : [
-          {
-            "filterField" : "CITIZEN_ID",
-            "fieldType" : "VARCHAR",
-            "fromValue" : "2322428",
-            "filterCondition" : "EQUAL"
-          }
-        ]
-      }
-    ],
-    "ignoreIdSchemaFields": [
-      "proofOfConsent",
-      "proofOfIdentity",
-      "region",
-      "district",
-      "chiefdom",
-      "consentText",
-      "consent"
-    ],
-    "columnDetails": [
-      {
-        "fieldName": "CITIZEN.CITIZEN_ID",
-        "fieldToMap": "CITIZEN_ID"
+	  {
+        "queryType": "SQL_QUERY",
+        "executionOrderSequence": 2,
+        "tableName": "ZTMP_MOSIP_SDMS_DOC_REG",
+        "sqlQuery": "SELECT APPLICATION_ID,SERIAL_NUMBER,DOC_REF_NO, 'JPG' AS doc_format, REG_FORM,REG_TYPE FROM ZTMP_MOSIP_SDMS_DOC_REG WHERE APPLICATION_ID = ${DEMO:APPLICATION_ID}"
       },
-      {
-        "fieldName": "CITIZEN.FIRSTNAME,CITIZEN.MIDDLENAME",
-        "fieldToMap": "firstName"
-      },
-      {
-        "fieldName": "CITIZEN.MIDDLENAME",
-        "fieldToMap": "middleName"
-      },
-      {
-        "fieldName": "CITIZEN.LASTNAME",
-        "fieldToMap": "lastName"
-      },
-      {
-        "fieldName": "CITIZEN.BIRTHDATE",
-        "fieldToMap": "dateOfBirth",
-        "destFormat": ["YMD"]
-
-      },
-      {
-        "fieldName": "CITIZEN.GENDER",
-        "fieldToMap": "gender"
-      },
-      {
-        "fieldName": "CITIZEN.PHONE_NUMBER",
-        "fieldToMap": "phone"
-      },
-      {
-        "fieldName": "CITIZEN.NATIONALITY",
-        "fieldToMap": "residenceStatus",
-        "mvelExpressions": {
-          "mvelFile": "Nationality.mvel",
-          "parameters": [
-            {
-              "parameterName": "nationality",
-              "parameterType": "STRING",
-              "parameterValue": "${NATIONALITY}"
-            },
-            {
-              "parameterName": "nationalList",
-              "parameterType": "SQL",
-              "parameterValue": "SELECT lower(COUNTRY_CODE) FROM ECOWAS_MAP"
-            }
-          ]
-        }
-      },
-      {
-        "fieldName": "CITIZEN.RESIDENTIAL_ADDRESS",
-        "fieldToMap": "addressLine"
-      },
-      {
-        "fieldName": "CITIZEN.PERMANENT_ADDRESS",
-        "fieldToMap": "permanentAddressLine"
-      },
-      {
-        "fieldName": "POC_DOCUMENTS.document",
-        "fieldToMap": "proofOfAddress",
+			{
+				"queryType": "TABLE",
+				"executionOrderSequence": 1,
+				"tableName": "ZTMP_MOSIP_SDMS",
+				"nonIdSchemaTableFields": [
+					"APPLICATION_ID"
+				]
+			}
+		],
+		"ignoreIdSchemaFields": [
+			"applicantForiegnOriginCountry",
+			"applicantForiegnOriginState",
+			"fatherIndigenousCommunityTribe",
+			"DECLARANT_NATIONALITY",
+			"DECLARANT_NATIONALID",
+			"declarantotherNames",
+			"SPOUSE_PREVIOUS",
+			"FATHER_OCCUPATION",
+			"FATHER_LIVING_STATUS",
+			"DECLARANT_SEX",
+			"declarant",
+			"applicantPlaceOfBirth",
+			"fatherKnown",
+			"motherKnown"
+		],
+		"columnDetails": [
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"fieldToMap": "APPLICATION_ID"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.NATIONAL_ID",
+				"fieldToMap": "NIN",
+				"useAsHandle": true
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SURNAME",
+				"fieldToMap": "surname"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GIVEN_NAMES",
+				"fieldToMap": "givenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.OTHER_NAMES",
+				"fieldToMap": "otherNames"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MAIDEN_NAME1",
+				"fieldToMap": "maidenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PREVIOUS_SURNAME1",
+				"fieldToMap": "previousName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DATE_OF_BIRTH",
+				"fieldToMap": "dateOfBirth",
+				"destFormat": ["YMD"]
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.RESIDENCESTATUS",
+				"fieldToMap": "residenceStatus"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.CELLPHONE1",
+				"fieldToMap": "phone"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.LANDLINE_PHONE_NUMBER",
+				"fieldToMap": "homePhoneNumber"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.EMAIL1",
+				"fieldToMap": "email"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.HIGHEST_LEVEL_OF_EDUCATION",
+				"fieldToMap": "highestLevelOfEducation"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.profession",
+				"fieldToMap": "profession"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.occupation",
+				"fieldToMap": "occupation"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.RELIGION",
+				"fieldToMap": "religion"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISABILITY_PHYSICAL",
+				"fieldToMap": "disabilities"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_OF_RESIDENCE",
+				"fieldToMap": "applicantPlaceOfResidenceDistrict"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_RESIDENCE_COUNTY",
+				"fieldToMap": "applicantPlaceOfResidenceCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_RESIDENCE_SUBCOUNTY",
+				"fieldToMap": "applicantPlaceOfResidenceSubCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_RESIDENCE_PARISH",
+				"fieldToMap": "applicantPlaceOfResidenceParish"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_RESIDENCE_VILLAGE",
+				"fieldToMap": "applicantPlaceOfResidenceVillage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.STREET_OF_RESIDENCE",
+				"fieldToMap": "applicantPlaceOfResidenceStreet"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.HOUSE_OF_RESIDENCE",
+				"fieldToMap": "applicantPlaceOfResidenceHouseNo"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_OF_ORIGIN",
+				"fieldToMap": "applicantPlaceOfOriginDistrict"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.COUNTY_OF_ORIGIN",
+				"fieldToMap": "applicantPlaceOfOriginCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SUBCOUNTY_OF_ORIGIN",
+				"fieldToMap": "applicantPlaceOfOriginSubCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PARISH_OF_ORIGIN",
+				"fieldToMap": "applicantPlaceOfOriginParish"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.VILLAGE_OF_ORIGIN",
+				"fieldToMap": "applicantPlaceOfOriginVillage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthDistrict"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.COUNTY_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SUBCOUNTY_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthSubCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PARISH_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthParish"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.VILLAGE_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthVillage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.YEARS_NUMBER_OF_RESIDENCE",
+				"fieldToMap": "applicantPlaceOfResidenceYearsLived"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_OF_PREV_RESIDENCE",
+				"fieldToMap": "applicantPlaceOfResidenceDistrictOfPrevRes"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.POSTAL_ADDRESS_LINE1,ZTMP_MOSIP_SDMS.POSTAL_ADDRESS_LINE2,ZTMP_MOSIP_SDMS.POSTAL_ADDRESS_LINE3",
+				"fieldToMap": "applicantPlaceOfResidencePostalAddress"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.HEALTH_FACILITY_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthHealthFacility"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.CITY_OF_BIRTH",
+				"fieldToMap": "applicantPlaceOfBirthCity"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.CITIZENSHIP_CERTIFICATE_NUMBER",
+				"fieldToMap": "citizenshipCertificateNo"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.CITIZENSHIP_TYPE",
+				"fieldToMap": "userServiceType"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PASSPORT_NUMBER",
+				"fieldToMap": "applicantPassportNumber"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PASSPORT_FILE_NUMBER",
+				"fieldToMap": "applicantPassportFileNumber"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.INDIGENOUS_COMMUNITY",
+				"fieldToMap": "applicantPlaceOfOriginIndigenousCommunityTribe"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.CLAN",
+				"fieldToMap": "applicantPlaceOfOriginClan"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PREF_POLLING_STATION_ADDRESS",
+				"fieldToMap": "preferredPollingStation"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MARITAL_STATUS",
+				"fieldToMap": "maritalStatus"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SPOUSE_SURNAME",
+				"fieldToMap": "spouseSurname"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SPOUSE_GIVEN_NAMES",
+				"fieldToMap": "spouseGivenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.OTHER_NAMES",
+				"fieldToMap": "spouseOtherNames"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SPOUSE_MAIDEN_NAMES",
+				"fieldToMap": "spouseMaidenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SPOUSECITIZENSHIPTYPE",
+				"fieldToMap": "spouseCitizenshipType"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MARRIAGE_CERTIFICATE_NUMBER",
+				"fieldToMap": "spouseMarriageCertificateNumber"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PLACE_OF_MARRIAGE",
+				"fieldToMap": "spousePlaceOfMarriage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DATE_OF_MARRIAGE",
+				"fieldToMap": "spouseDateOfMarriage",
+				"destFormat": ["YMD"]
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.TYPE_OF_MARRIAGE",
+				"fieldToMap": "spouseTypeOfMarriage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SURNAME_MOTHER",
+				"fieldToMap": "motherSurname"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GIVEN_NAMES_MOTHER",
+				"fieldToMap": "motherGivenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_LIVING_STATUS",
+				"fieldToMap": "motherLivingStatus"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.OTHER_NAMES_MOTHER",
+				"fieldToMap": "motherOtherNames"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_PREVIOUS_NAME",
+				"fieldToMap": "motherPreviousName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHERNATIONALID",
+				"fieldToMap": "motherNIN"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_CITIZEN_TYPE",
+				"fieldToMap": "motherCitizenshipType"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHERIDDOCUMENTNO",
+				"fieldToMap": "motherIDDocumentNo"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHEROCCUPATION",
+				"fieldToMap": "motherOccupation"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_COMMUNITY",
+				"fieldToMap": "motherIndigenousCommunityTribe"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_TRIBE",
+				"fieldToMap": "motherIndigenousCommunityClan"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_DISTRICT_ORIGIN",
+				"fieldToMap": "motherPlaceOfOriginDistrict"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.MOTHER_COUNTY_OF_ORIGIN",
+				"fieldToMap": "motherPlaceOfOriginCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SUBCOUNTY_MOTHER",
+				"fieldToMap": "motherPlaceOfOriginSubCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PARISH_MOTHER",
+				"fieldToMap": "motherPlaceOfOriginParish"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.VILLAGE_MOTHER",
+				"fieldToMap": "motherPlaceOfOriginVillage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHERNATIONALID",
+				"fieldToMap": "fatherNIN"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SURNAME_FATHER",
+				"fieldToMap": "fatherSurname"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GIVEN_NAMES_FATHER",
+				"fieldToMap": "fatherGivenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHERIDDOCUMENTNO",
+				"fieldToMap": "fatherIDDocumentNo"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHERLIVINGSTATUS",
+				"fieldToMap": "fatherLivingStatus"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHER_CITIZENSHIP_TYPE",
+				"fieldToMap": "fatherCitizenshipType"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHER_CLAN",
+				"fieldToMap": "fatherIndigenousCommunityClan"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHER_TRIBE",
+				"fieldToMap": "fatherIndigenousCommunityTribe"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHER_DISTRICT_ORIGIN",
+				"fieldToMap": "fatherPlaceOfOriginDistrict"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FATHER_COUNTY_OF_ORIGIN",
+				"fieldToMap": "fatherPlaceOfOriginCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SUBCOUNTY_FATHER",
+				"fieldToMap": "fatherPlaceOfOriginSubCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.PARISH_FATHER",
+				"fieldToMap": "fatherPlaceOfOriginParish"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.VILLAGE_FATHER",
+				"fieldToMap": "fatherPlaceOfOriginVillage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_SURNAME",
+				"fieldToMap": "guardianSurname"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_GIVEN_NAMES",
+				"fieldToMap": "guardianGivenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_OTHER_NAMES",
+				"fieldToMap": "guardianOtherNames"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN1NATIONALID",
+				"fieldToMap": "guardianNIN_AIN"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.INDIGENOUS_COMMUNITY",
+				"fieldToMap": "guardianTribe"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_CLAN",
+				"fieldToMap": "guardianClan"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DISTRICT_OF_GUARDIAN",
+				"fieldToMap": "guardianResidenceDistrict"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_COUNTY",
+				"fieldToMap": "guardianResidenceCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_SUBCOUNTY",
+				"fieldToMap": "guardianResidenceSubCounty"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_PARISH",
+				"fieldToMap": "guardianResidenceParish"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_VILLAGE",
+				"fieldToMap": "guardianResidenceVillage"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DD_REG_SURNAME",
+				"fieldToMap": "declarantSurname"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DD_REG_GIVEN_NAMES",
+				"fieldToMap": "declarantgivenName"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DD_REG_OTHER_NAMES",
+				"fieldToMap": "declarantotherNames"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DD_REG_NATIONAL_ID",
+				"fieldToMap": "introducerUIN"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.ROLE",
+				"fieldToMap": "declarant"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.SEX",
+				"fieldToMap": "gender"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.DOCUMENT_ID",
+				"fieldToMap": "cardNumber"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.USE_CASE",
+				"fieldToMap": "userService"
+			},
+			{
+        "fieldName": "ZTMP_MOSIP_SDMS_DOC.SCAN",
+        "fieldToMap": "proofOfCitizenship",
         "documentAttributes": {
-          "documentRefNoField": "POC_DOCUMENTS.doc_ref_no",
-          "documentFormatField": "POC_DOCUMENTS.doc_format",
-          "documentCodeField": "POC_DOCUMENTS.poc_dt_id"
+          "documentRefNoField": "ZTMP_MOSIP_SDMS_DOC.SERIAL_NUMBER",
+          "documentFormatField": "ZTMP_MOSIP_SDMS_DOC.DOC_FORMAT",
+          "documentCodeField": "ZTMP_MOSIP_SDMS_DOC.DOC_REF_NO",
+          "documentValueMap": {
+            "mapColumnName": "DOCUMENT_TYPE_OTHER",
+            "mapColumnValue": "INTRODUCTION LETTER"
+          }
         }
       },
-      {
-        "fieldName": "CITIZEN.LEFT_THUMB",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_leftThumb"
+	  {
+        "fieldName": "ZTMP_MOSIP_SDMS_DOC_REG.REG_FORM",
+        "fieldToMap": "proofOfRegistration",
+        "documentAttributes": {
+          "documentRefNoField": "ZTMP_MOSIP_SDMS_DOC_REG.SERIAL_NUMBER",
+          "documentFormatField": "ZTMP_MOSIP_SDMS_DOC_REG.DOC_FORMAT",
+          "documentCodeField": "ZTMP_MOSIP_SDMS_DOC_REG.DOC_REF_NO",
+          "documentValueMap": {
+            "mapColumnName": "REG_TYPE",
+            "mapColumnValue": "REG"
+          }
+        }
       },
-      {
-        "fieldName": "CITIZEN.photo",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "JPEG",
-        "destFormat": [
-          "JP2",
-          "ISO"
-        ],
-        "fieldToMap": "individualBiometrics_face"
-      },
-      {
-        "fieldName": "CITIZEN.LEFT_INDEX_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_leftIndex"
-      },
-      {
-        "fieldName": "CITIZEN.LEFT_MIDDLE_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_leftMiddle"
-      },
-      {
-        "fieldName": "CITIZEN.LEFT_RING_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_leftRing"
-      },
-      {
-        "fieldName": "CITIZEN.LEFT_LITTLE_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_leftLittle"
-      },
-      {
-        "fieldName": "CITIZEN.RIGHT_THUMB",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_rightThumb"
-      },
-      {
-        "fieldName": "CITIZEN.RIGHT_INDEX_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_rightIndex"
-      },
-      {
-        "fieldName": "CITIZEN.RIGHT_MIDDLE_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_rightMiddle"
-      },
-      {
-        "fieldName": "CITIZEN.RIGHT_RING_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_rightRing"
-      },
-      {
-        "fieldName": "CITIZEN.RIGHT_LITTLE_FINGER",
-        "primaryField": "CITIZEN.FIRSTNAME",
-        "srcFormat": "WSQ",
-        "fieldToMap": "individualBiometrics_rightLittle"
-      }
-    ],
-  "trackerInfo" : {
-    "trackerColumn" : "CITIZEN_ID"
-  }
-  },
-  "requesttime": "2018-12-10T06:12:52.994Z",
-  "version": "string"
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT01",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_rightThumb"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FACE",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "JPEG",
+				"fieldToMap": "individualBiometrics_face"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT02",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_rightIndex"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT03",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_rightMiddle"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT04",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_rightRing"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT05",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_rightLittle"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT06",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_leftThumb"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT07",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_leftIndex"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT08",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_leftMiddle"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT09",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_leftRing"
+			},
+			{
+				"fieldName": "ZTMP_MOSIP_SDMS.FINGERPRINT10",
+				"primaryField": "ZTMP_MOSIP_SDMS.APPLICATION_ID",
+				"srcFormat": "WSQ",
+				"fieldToMap": "individualBiometrics_leftLittle"
+			}
+		],
+		"trackerInfo": {
+			"trackerColumn": "APPLICATION_ID"
+		}
+	},
+	"requesttime": "2018-12-10T06:12:52.994Z",
+	"version": "string"
 }

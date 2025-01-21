@@ -196,6 +196,19 @@ public class ConfigUtil {
         RequestWrapper machineRequestWrapper = prepareMachineCreateDto(model);;
         ResponseWrapper machineResponseWrapper = (ResponseWrapper) restApiClient.postApi(ApiName.MASTER_MACHINE_CREATE,null, null, machineRequestWrapper, ResponseWrapper.class, MediaType.APPLICATION_JSON, REFERENCE_ID);
 
+        if (machineResponseWrapper.getErrors() != null && !machineResponseWrapper.getErrors().isEmpty()) {
+        	String errorMessage = null;
+            for(Object machineError : machineResponseWrapper.getErrors()) {
+                ServiceError error = (ServiceError) machineError;
+
+                if(errorMessage==null)
+                    errorMessage = error.getErrorCode() + " - " + error.getMessage() + "\n";
+                else
+                    errorMessage += error.getErrorCode() + " - " + error.getMessage() + "\n";
+            }
+            throw new RuntimeException("Error While Creating Machine Error : " + errorMessage);
+        }
+        
         HashMap<String, Object> createResponse = (HashMap<String, Object>) machineResponseWrapper.getResponse();
         String queryParm = "id";
         String queryValue = (String) createResponse.get("id");

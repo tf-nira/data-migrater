@@ -6,6 +6,7 @@ import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.GlobalConfig;
 import io.mosip.packet.core.dto.NINDetailsResponseDto;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
@@ -223,9 +224,9 @@ public class DataExtractionController {
         return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
     }
 
-    @GetMapping(value = "/getPacketStatus", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/getPacketStatus", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResponseWrapper> getPacketStatus(@RequestBody RequestWrapper<PacketStatusRequest> request) {
-        ResponseWrapper<String> responseWrapper = new ResponseWrapper();
+        ResponseWrapper<PacketResponseDto> responseWrapper = new ResponseWrapper();
         try {
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: entry");
             responseWrapper.setResponse(dataExtractionService.getPacketStatus(request.getRequest()));
@@ -241,7 +242,7 @@ public class DataExtractionController {
         return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
     }
     
-    @GetMapping(value = "/getNINDetails", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/getNINDetails", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResponseWrapper> getNINDetails(@RequestBody RequestWrapper<PacketStatusRequest> request) {
         ResponseWrapper<NINDetailsResponseDto> responseWrapper = new ResponseWrapper();
         try {

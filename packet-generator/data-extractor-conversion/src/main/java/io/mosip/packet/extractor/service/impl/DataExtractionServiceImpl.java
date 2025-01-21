@@ -14,6 +14,7 @@ import io.mosip.packet.core.constant.tracker.TrackerStatus;
 import io.mosip.packet.core.dto.DataPostProcessorResponseDto;
 import io.mosip.packet.core.dto.DataProcessorResponseDto;
 import io.mosip.packet.core.dto.NINDetailsResponseDto;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
 import io.mosip.packet.core.dto.biosdk.BioSDKRequestWrapper;
@@ -398,15 +399,14 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     }
     
     @Override
-    public String getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception {
+    public PacketResponseDto getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception {
     	LOGGER.info("Checking packet status");
     	
     	updateNinFilter(packetStatusRequest);
 		
 		LOGGER.info("Starting packet creation");
 
-		processPacket(true);
-		return "Packet creation started";
+		return (PacketResponseDto) processPacket(true);
     }
     
     @Override
@@ -415,7 +415,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     	
     	updateNinFilter(packetStatusRequest);
 
-		return processPacket(false);
+		return (NINDetailsResponseDto) processPacket(false);
     }
     
     private void updateNinFilter(PacketStatusRequest packetStatusRequest) throws Exception {
@@ -458,9 +458,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 		}
     }
     
-    private NINDetailsResponseDto processPacket(boolean isPacketCreationProcess) throws Exception {
+    private Object processPacket(boolean isPacketCreationProcess) throws Exception {
     	NINDetailsResponseDto response = new NINDetailsResponseDto();
-
+    	PacketResponseDto packetResponse = new PacketResponseDto();
     	try {
 			List<ValidatorEnum> enumList = new ArrayList<>();
 			enumList.add(ValidatorEnum.FILTER_VALIDATOR);
@@ -490,7 +490,8 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 			validationUtil.validateRequest(onDemandDbImportRequest, enumList);
 			
 			dataReaderApiFactory.connectDataReader(onDemandDbImportRequest);
-			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketCreationProcess);
+			boolean isPacketProcessed = false;
+			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketCreationProcess, isPacketProcessed);
 			
 			if (dataHashMap == null || dataHashMap.isEmpty()) {
 				throw new Exception("No data found for given nin");
@@ -503,31 +504,40 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 		        
 		        PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
 		        
+		        response.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
 		        response.setDemographics(packetDto.getFields());
 		        response.setDocuments(packetDto.getDocuments());
 		        LOGGER.info("Fetched details for nin");
 			} else {
-				Long startTime = System.nanoTime();
-                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
-                trackerRequestDto.setRegNo(null);
-                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
-                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
-                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
-                trackerRequestDto.setSessionKey(SESSION_KEY);
-                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
-                trackerRequestDto.setComments("Object Ready For Processing");
-                trackerUtil.addTrackerEntry(trackerRequestDto);
-                
-                LOGGER.info("Processing data");
-                DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
+				packetResponse.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+				
+				if (!isPacketProcessed) {
+					Long startTime = System.nanoTime();
+	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+	                trackerRequestDto.setRegNo(null);
+	                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+	                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+	                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+	                trackerRequestDto.setSessionKey(SESSION_KEY);
+	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
+	                trackerRequestDto.setComments("Object Ready For Processing");
+	                trackerUtil.addTrackerEntry(trackerRequestDto);
+	                
+	                LOGGER.info("Processing data");
+	                DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
 
-                LOGGER.info("Packet creation started");
-                DataPostProcessorResponseDto postProcessorResponseDto = dataPostProcessorApiFactory.postProcess(processObject, setter, startTime);
-                
-                LOGGER.info("Packet sync and upload started");
-                dataExporterApiFactory.export(postProcessorResponseDto, (new Date()).getTime(), setter);
-                
-                LOGGER.info("Packet uploaded successfully");
+	                LOGGER.info("Packet creation started");
+	                DataPostProcessorResponseDto postProcessorResponseDto = dataPostProcessorApiFactory.postProcess(processObject, setter, startTime);
+	                
+	                LOGGER.info("Packet sync and upload started");
+	                dataExporterApiFactory.export(postProcessorResponseDto, (new Date()).getTime(), setter);
+	                
+	                LOGGER.info("Packet uploaded successfully");
+	                
+	                packetResponse.setStatus("Packet uploaded successfully");
+				} else {
+					packetResponse.setStatus("Packet already processed");
+				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -536,7 +546,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
             dataReaderApiFactory.disconnectDataReader();
         }
     	
-    	return response;
+    	return isPacketCreationProcess ? packetResponse : response;
     }
 
     @Override

@@ -1,6 +1,7 @@
 package io.mosip.packet.extractor.service;
 
 import io.mosip.packet.core.dto.NINDetailsResponseDto;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
 import io.mosip.packet.core.dto.dbimport.PacketStatusRequest;
@@ -16,7 +17,7 @@ public interface DataExtractionService {
     public HashMap<String, Object> extractBioDataFromDBAsBytes(DBImportRequest dbImportRequest, Boolean localStoreRequired) throws Exception;
     public PacketCreatorResponse createPacketFromDataBase(DBImportRequest dbImportRequest) throws SQLException, IOException, Exception;
     public String refreshQualityAnalysisData() throws Exception;
-    public String getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception;
+    public PacketResponseDto getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception;
     public NINDetailsResponseDto getNINDetails(PacketStatusRequest packetStatusRequest) throws Exception;
     public String extractBioDataFromPacket(RegistrationIdRequest registrationIdRequest) throws Exception;
 }

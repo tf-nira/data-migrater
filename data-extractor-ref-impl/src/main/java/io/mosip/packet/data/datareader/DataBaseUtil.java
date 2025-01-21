@@ -457,7 +457,7 @@ public class DataBaseUtil implements DataReader {
     }
     
     @Override
-    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, boolean isPacketCreationProcess) throws Exception {
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, boolean isPacketCreationProcess, boolean isPacketProcessed) throws Exception {
     	LOGGER.info("Reading data from database for given nin");
     	
     	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
@@ -510,7 +510,7 @@ public class DataBaseUtil implements DataReader {
                             }
                         } else {
                         	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
-                        	throw new Exception("Packet already processed");
+                        	isPacketProcessed = true;
                         }
                     } catch (Exception e) {
                         LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
