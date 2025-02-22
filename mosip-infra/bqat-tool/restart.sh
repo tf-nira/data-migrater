@@ -2,6 +2,7 @@
 # Restart the migrator services
 ## Usage: ./restart.sh [kubeconfig]
 
+
 if [ $# -ge 1 ] ; then
   export KUBECONFIG=$1
 fi
