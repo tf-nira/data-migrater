@@ -1,0 +1,16 @@
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+def getTrimmedTribe() {
+        String guardianTribe = (String) identity.get('guardianTribe');
+		
+		if (guardianTribe != null) {
+			Pattern pattern = Pattern.compile("^(.*?)(\\s*\\(\\d+\\))?$");
+			Matcher matcher = pattern.matcher(guardianTribe);
+			if (matcher.find()) {
+				return matcher.group(1).trim();
+			}
+		}
+		return null;
+}

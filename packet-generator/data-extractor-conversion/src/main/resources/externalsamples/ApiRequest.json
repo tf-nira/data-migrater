@@ -409,7 +409,17 @@
 			},
 			{
 				"fieldName": "ZTMP_MOSIP_SDMS.INDIGENOUS_COMMUNITY",
-				"fieldToMap": "guardianTribe"
+				"fieldToMap": "guardianTribe",
+				"mvelExpressions": {
+					"mvelFile": "TrimmedTribe.mvel",
+					"parameters": [
+						{
+							"parameterName": "guardianTribe",
+							"parameterType": "STRING",
+							"parameterValue": "${INDIGENOUS_COMMUNITY}"
+						}
+					]
+				}
 			},
 			{
 				"fieldName": "ZTMP_MOSIP_SDMS.GUARDIAN_CLAN",

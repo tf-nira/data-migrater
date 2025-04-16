@@ -8,6 +8,7 @@ import io.mosip.packet.core.constant.*;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.database.QueryLimitSetter;
 import io.mosip.packet.core.constant.database.QueryOffsetLimitSetter;
+import io.mosip.packet.core.dto.BooleanWrapper;
 import io.mosip.packet.core.dto.dbimport.*;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.service.thread.CustomizedThreadPoolExecutor;
@@ -457,7 +458,7 @@ public class DataBaseUtil implements DataReader {
     }
     
     @Override
-    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, boolean isPacketCreationProcess, boolean isPacketProcessed) throws Exception {
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, BooleanWrapper isPacketProcessed) throws Exception {
     	LOGGER.info("Reading data from database for given nin");
     	
     	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
@@ -484,7 +485,7 @@ public class DataBaseUtil implements DataReader {
 
                         populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
 
-                        if (!isPacketCreationProcess || !trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                        if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
                         	for (int i = 1; i < tableRequestDtoList.size(); i++) {
                                 PreparedStatement statement2 = null;
                                 ResultSet resultSet1 = null;
@@ -494,7 +495,7 @@ public class DataBaseUtil implements DataReader {
                                     resultSet1 = statement2.executeQuery();
 
                                     Map<String, Object> resultData1 = new HashMap<>();
-                                    if (resultSet1 != null && resultSet1.next()) {
+                                    while (resultSet1 != null && resultSet1.next()) {
                                         resultData1.putAll(extractResultSet(resultSet1));
                                     }
 
@@ -510,7 +511,7 @@ public class DataBaseUtil implements DataReader {
                             }
                         } else {
                         	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
-                        	isPacketProcessed = true;
+                        	isPacketProcessed.setValue(true);
                         }
                     } catch (Exception e) {
                         LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));

@@ -11,6 +11,7 @@ import io.mosip.packet.core.config.activity.Activity;
 import io.mosip.packet.core.constant.*;
 import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.tracker.TrackerStatus;
+import io.mosip.packet.core.dto.BooleanWrapper;
 import io.mosip.packet.core.dto.DataPostProcessorResponseDto;
 import io.mosip.packet.core.dto.DataProcessorResponseDto;
 import io.mosip.packet.core.dto.NINDetailsResponseDto;
@@ -469,20 +470,18 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 @SneakyThrows
                 @Override
                 public void setResult(Object obj) {
-                    if (isPacketCreationProcess) {
-                    	ResultDto resultDto = (ResultDto) obj;
-                        TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
-                        trackerRequestDto.setRegNo(resultDto.getRegNo());
-                        trackerRequestDto.setRefId(resultDto.getRefId());
-                        trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
-                        trackerRequestDto.setActivity(GlobalConfig.getActivityName());
-                        trackerRequestDto.setSessionKey(SESSION_KEY);
-                        trackerRequestDto.setStatus(resultDto.getStatus().toString());
-                        trackerRequestDto.setComments(resultDto.getComments());
-                        trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
-                        trackerUtil.addTrackerEntry(trackerRequestDto);
-                        trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(), onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY, GlobalConfig.getActivityName());
-                    }
+                	ResultDto resultDto = (ResultDto) obj;
+                    TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+                    trackerRequestDto.setRegNo(resultDto.getRegNo());
+                    trackerRequestDto.setRefId(resultDto.getRefId());
+                    trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+                    trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+                    trackerRequestDto.setSessionKey(SESSION_KEY);
+                    trackerRequestDto.setStatus(resultDto.getStatus().toString());
+                    trackerRequestDto.setComments(resultDto.getComments());
+                    trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
+                    trackerUtil.addTrackerEntry(trackerRequestDto);
+                    trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(), onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY, GlobalConfig.getActivityName());
                 }
             };
 			
@@ -490,28 +489,44 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 			validationUtil.validateRequest(onDemandDbImportRequest, enumList);
 			
 			dataReaderApiFactory.connectDataReader(onDemandDbImportRequest);
-			boolean isPacketProcessed = false;
-			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketCreationProcess, isPacketProcessed);
+			BooleanWrapper isPacketProcessed = new BooleanWrapper();
+			isPacketProcessed.setValue(false);
+			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketProcessed);
 			
 			if (dataHashMap == null || dataHashMap.isEmpty()) {
 				throw new Exception("No data found for given nin");
 			}
 			
 			if (!isPacketCreationProcess) {
-				LOGGER.info("Processing data to get packet details");
+				response.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
 		        
-		        DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
-		        
-		        PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
-		        
-		        response.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
-		        response.setDemographics(packetDto.getFields());
-		        response.setDocuments(packetDto.getDocuments());
-		        LOGGER.info("Fetched details for nin");
+				if (!isPacketProcessed.isValue()) {
+	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+	                trackerRequestDto.setRegNo(null);
+	                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+	                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+	                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+	                trackerRequestDto.setSessionKey(SESSION_KEY);
+	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
+	                trackerRequestDto.setComments("Object Ready For Processing");
+	                trackerUtil.addTrackerEntry(trackerRequestDto);
+	                
+					LOGGER.info("Processing data to get packet details");
+					DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
+			        
+			        PacketDto packetDto = (PacketDto) processObject.getResponses().get("packetDto");
+			        
+			        response.setDemographics(packetDto.getFields());
+			        response.setDocuments(packetDto.getDocuments());
+			        response.setStatus("Details fetched successfully");
+			        LOGGER.info("Fetched details for nin");
+				} else {
+					response.setStatus("Packet already processed");
+				}
 			} else {
 				packetResponse.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
 				
-				if (!isPacketProcessed) {
+				if (!isPacketProcessed.isValue()) {
 					Long startTime = System.nanoTime();
 	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
 	                trackerRequestDto.setRegNo(null);

@@ -10,4 +10,5 @@ public class NINDetailsResponseDto {
 	private String rid;
 	private Map<String, String> demographics;
 	private Map<String, Document> documents;
+	private String status;
 }
