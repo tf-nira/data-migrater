@@ -155,7 +155,7 @@ public class TableDataMapperUtil implements DataMapperUtil {
                                 String val = "";
                                 for(int j = 0; j < difference; j++)
                                     val+= (mapArray.length < k+1) ? "" : mapArray[k++] + VALUE_SPLITTER;
-                                newArray[i] = val;
+                                newArray[i] = val.trim();
                             } while(++i < arrayLength);
 
                             for(int z = 0; z < arrayLength; z++)
