@@ -485,7 +485,7 @@ public class DataBaseUtil implements DataReader {
 
                         populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
 
-                        if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                        if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketProcessed.isValue()) {
                         	for (int i = 1; i < tableRequestDtoList.size(); i++) {
                                 PreparedStatement statement2 = null;
                                 ResultSet resultSet1 = null;
