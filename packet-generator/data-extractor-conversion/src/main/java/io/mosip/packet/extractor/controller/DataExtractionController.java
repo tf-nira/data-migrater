@@ -254,6 +254,23 @@ public class DataExtractionController {
             ServiceError error = new ServiceError();
             error.setErrorCode("IX-0001");
             error.setMessage("Error : " + e.getMessage());
+            if(e.getMessage().contains("Closed Connection")) {
+            	try {
+            		responseWrapper.setResponse(dataExtractionService.getNINDetails(request.getRequest()));
+				} catch (Exception e1) {
+					error.setErrorCode("IX-0001");
+		            error.setMessage("Error : " + e.getMessage());
+		            if(e.getMessage().contains("Closed Connection")) {
+		            	try {
+							responseWrapper.setResponse(dataExtractionService.getNINDetails(request.getRequest()));
+						} catch (Exception e2) {
+							error.setErrorCode("IX-0001");
+				            error.setMessage("Error : " + e.getMessage());
+							e2.printStackTrace();
+						}
+		            }
+				}
+            }
             responseWrapper.getErrors().add(error);
             LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, error.getErrorCode(), error.getMessage());
         }
