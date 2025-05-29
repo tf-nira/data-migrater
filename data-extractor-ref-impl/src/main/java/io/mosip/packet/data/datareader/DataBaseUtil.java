@@ -102,7 +102,7 @@ public class DataBaseUtil implements DataReader {
                 dataSource = new HikariDataSource(config);
                 conn = dataSource.getConnection();
                 
-//            	  dbType = dbImportRequest.getDbType();
+            	  dbType = dbImportRequest.getDbType();
 //                Class driverClass = Class.forName(dbType.getDriver());
 //                DriverManager.registerDriver((Driver) driverClass.newInstance());
                   String connectionHost = String.format(dbType.getDriverUrl(), dbImportRequest.getUrl(), dbImportRequest.getPort(), dbImportRequest.getDatabaseName());
