@@ -9,6 +9,13 @@
 		"userId": "C##NIRAUSER",
 		"password": "Test123",
 		"process": "MIGRATOR",
+        "oracleDBUrl":"jdbc:oracle:thin:@localhost:1521:FREE",
+		"maximumPoolSize":40,
+		"minimumIdleConnections":10,
+		"connectionTimeout":3000,
+		"idleTimeout":600000,
+		"maxLifeTime":1800000,
+		"leakDetectionThreshold":60000,
 		"tableDetails": [
 			{
         "queryType": "SQL_QUERY",
