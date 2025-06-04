@@ -25,6 +25,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 import java.sql.*;
 import java.util.*;
@@ -38,6 +40,7 @@ import static io.mosip.packet.core.constant.RegistrationConstants.*;
 public class DataBaseUtil implements DataReader {
     private static final Logger LOGGER = DataProcessLogger.getLogger(DataBaseUtil.class);
     private Connection conn = null;
+    private HikariDataSource dataSource;
     private boolean isTrackerSameHost = false;
     private String trackColumn = null;
     private DBTypes dbType = null;
@@ -83,11 +86,27 @@ public class DataBaseUtil implements DataReader {
     public void connectDatabase(DBImportRequest dbImportRequest) throws SQLException {
         try {
             if(conn == null) {
-                dbType = dbImportRequest.getDbType();
-                Class driverClass = Class.forName(dbType.getDriver());
-                DriverManager.registerDriver((Driver) driverClass.newInstance());
-                String connectionHost = String.format(dbType.getDriverUrl(), dbImportRequest.getUrl(), dbImportRequest.getPort(), dbImportRequest.getDatabaseName());
-                conn = DriverManager.getConnection(connectionHost, dbImportRequest.getUserId(), dbImportRequest.getPassword());
+            	HikariConfig config = new HikariConfig();
+            	config.setUsername(dbImportRequest.getUserId());
+            	config.setPassword(dbImportRequest.getPassword());
+            	config.setJdbcUrl(dbImportRequest.getOracleDBUrl());
+            	
+                config.setMaximumPoolSize(dbImportRequest.getMaximumPoolSize()); // Max number of connections in the pool
+                config.setMinimumIdle(dbImportRequest.getMinimumIdleConnections());    // Min number of idle connections
+                config.setConnectionTimeout(dbImportRequest.getConnectionTimeout()); // Max time to wait for a connection (ms)
+                config.setIdleTimeout(dbImportRequest.getIdleTimeout()); // Max idle time before closing (ms) - 10 minutes
+                config.setMaxLifetime(dbImportRequest.getMaxLifeTime()); // Max connection lifetime (ms) - 30 minutes
+                config.setLeakDetectionThreshold(dbImportRequest.getLeakDetectionThreshold()); // Detect connection leaks (ms)
+
+                config.setConnectionTestQuery("SELECT 1 FROM DUAL"); // For Oracle
+                dataSource = new HikariDataSource(config);
+                conn = dataSource.getConnection();
+                
+            	  dbType = dbImportRequest.getDbType();
+//                Class driverClass = Class.forName(dbType.getDriver());
+//                DriverManager.registerDriver((Driver) driverClass.newInstance());
+                  String connectionHost = String.format(dbType.getDriverUrl(), dbImportRequest.getUrl(), dbImportRequest.getPort(), dbImportRequest.getDatabaseName());
+//                conn = DriverManager.getConnection(connectionHost, dbImportRequest.getUserId(), dbImportRequest.getPassword());
 
                 isTrackerSameHost = trackerUtil.isTrackerHostSame(connectionHost, dbImportRequest.getDatabaseName());
                 trackColumn = dbImportRequest.getTrackerInfo().getTrackerColumn();
@@ -233,16 +252,17 @@ public class DataBaseUtil implements DataReader {
             return null;
     }
 
-    public void closeConnection() {
-        if (conn != null) {
-            try {
-                conn.close();
-                conn = null;
-            } catch (SQLException e) {
-                LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Closing Database Connection " + e.getMessage());
-            }
-        }
-    }
+	public void closeConnection() {
+		if (dataSource != null) {
+			try {
+				dataSource.close();
+				conn = null;
+			} catch (Exception e) {
+				LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID,
+						" Error While Closing Database Connection " + e.getMessage());
+			}
+		}
+	}
 
     public void populateDataFromResultSet(TableRequestDto tableRequestDto, List<FieldFormatRequest> columnDetails, Map<String, Object> resultData, Map<FieldCategory, HashMap<String, Object>> dataMap, Map<String, HashMap<String, String>> fieldsCategoryMap, Boolean localStoreRequired) throws Exception {
         if (dataMap != null && dataMap.size() <= 0) {
@@ -476,7 +496,14 @@ public class DataBaseUtil implements DataReader {
                 Collections.sort(tableRequestDtoList);
                 TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
                 statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                scrollableResultSet = statement1.executeQuery();
+                if(conn.isValid(6000)) {
+                	scrollableResultSet = statement1.executeQuery();
+                }else {
+                	conn.close();
+                	connectDatabase(dbImportRequest);
+                	statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                	scrollableResultSet = statement1.executeQuery();
+                }
 
                 if (scrollableResultSet.first()) {
                     try {

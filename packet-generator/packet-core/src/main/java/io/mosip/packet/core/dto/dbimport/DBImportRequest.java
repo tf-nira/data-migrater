@@ -17,6 +17,13 @@ public class DBImportRequest {
     private String databaseName;
     private String userId;
     private String password;
+    private String oracleDBUrl;
+    private int maximumPoolSize;
+    private int minimumIdleConnections;
+    private int connectionTimeout;
+    private int idleTimeout;
+    private int maxLifeTime;    
+    private int leakDetectionThreshold;
     private List<TableRequestDto> tableDetails;
     private String process;
     private List<FieldFormatRequest> columnDetails;
