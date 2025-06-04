@@ -27,7 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class TableDataMapperUtil implements DataMapperUtil {
@@ -259,18 +261,48 @@ public class TableDataMapperUtil implements DataMapperUtil {
     }
     }
 
+    private static final int MAX_RETRIES = 3;
+    private static final long RETRY_DELAY_MS = 60000; // 1 second delay
+    
     private byte[] convertObjectToByteArray(Object obj) throws IOException, SQLException {
         if (obj instanceof String)
             return ((String) obj).getBytes(StandardCharsets.UTF_8);
 
-        if (obj instanceof Clob) {
+        if (obj instanceof Clob) {        	
             Clob clobObj = (Clob) obj;
             return clobObj.getSubString(1, (int) clobObj.length()).getBytes(StandardCharsets.UTF_8);
         }
 
         if (obj instanceof Blob) {
             Blob blobObj = (Blob) obj;
-            return blobObj.getBytes(1, (int) blobObj.length());
+            int attempts = 0;
+            while (attempts < MAX_RETRIES) {
+            	try {
+                    return blobObj.getBytes(1, (int) blobObj.length());
+                } catch (SQLException e) {
+                	if (e instanceof SQLRecoverableException ||
+                            (e.getMessage() != null && e.getMessage().toLowerCase().contains("closed connection"))) {
+                		System.err.println("Attempt " + (attempts + 1) + " failed for Blob conversion due to " +
+                                (e instanceof SQLRecoverableException ? "SQLRecoverableException" : "closed connection message") +
+                                ": " + e.getMessage());
+                        attempts++;
+                        if (attempts < MAX_RETRIES) {
+                            try {
+                                TimeUnit.MILLISECONDS.sleep(RETRY_DELAY_MS);
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException("Blob conversion interrupted during retry delay.", ie);
+                            }
+                        } else {
+                            // All retries exhausted, re-throw a more informative exception
+                            throw new SQLException("Failed to convert Blob after " + MAX_RETRIES + " attempts due to persistent database connection issue.", e);
+                        }
+                	}else {
+                        System.err.println("Blob conversion failed with non-retryable SQLException: " + e.getMessage());
+                        throw e;
+                	}
+                }
+            }
         }
         return (byte[]) obj;
     }
