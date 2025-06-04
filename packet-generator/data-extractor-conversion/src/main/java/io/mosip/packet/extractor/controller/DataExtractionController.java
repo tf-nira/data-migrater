@@ -259,13 +259,13 @@ public class DataExtractionController {
             		responseWrapper.setResponse(dataExtractionService.getNINDetails(request.getRequest()));
 				} catch (Exception e1) {
 					error.setErrorCode("IX-0001");
-		            error.setMessage("Error : " + e.getMessage());
-		            if(e.getMessage().contains("Closed Connection")) {
+		            error.setMessage("Error : " + e1.getMessage());
+		            if(e1.getMessage().contains("Closed Connection")) {
 		            	try {
 							responseWrapper.setResponse(dataExtractionService.getNINDetails(request.getRequest()));
 						} catch (Exception e2) {
 							error.setErrorCode("IX-0001");
-				            error.setMessage("Error : " + e.getMessage());
+				            error.setMessage("Error : " + e2.getMessage());
 							e2.printStackTrace();
 						}
 		            }

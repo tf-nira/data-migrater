@@ -484,6 +484,7 @@ public class DataBaseUtil implements DataReader {
     	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
         try {
             if (conn != null) {
+                LOGGER.info("Connection is not null");
                 initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
                 
                 PreparedStatement statement1 = null;
@@ -496,13 +497,16 @@ public class DataBaseUtil implements DataReader {
                 Collections.sort(tableRequestDtoList);
                 TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
                 statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                LOGGER.info("Checking for connection validity");
                 if(conn.isValid(6000)) {
+                    LOGGER.info("Connection is valid, execution the statement query");
                 	scrollableResultSet = statement1.executeQuery();
                 }else {
                 	conn.close();
                 	connectDatabase(dbImportRequest);
                 	statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                 	scrollableResultSet = statement1.executeQuery();
+                    LOGGER.info("Connection is closed, created new connection and executing the query");
                 }
 
                 if (scrollableResultSet.first()) {
