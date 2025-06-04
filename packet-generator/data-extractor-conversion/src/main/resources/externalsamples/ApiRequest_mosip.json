@@ -9,6 +9,13 @@
     "userId": "postgres",
     "password": "mosip123",
     "process": "MIGRATOR",
+    "oracleDBUrl":"jdbc:oracle:thin:@api-internal.dev.mosip.net:5432:SDMS2",
+    "maximumPoolSize":40,
+    "minimumIdleConnections":10,
+    "connectionTimeout":3000,
+    "idleTimeout":600000,
+    "maxLifeTime":1800000,
+    "leakDetectionThreshold":60000,
     "tableDetails": [
       {
         "queryType": "TABLE",
