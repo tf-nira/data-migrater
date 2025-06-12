@@ -32,6 +32,8 @@ import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import javax.annotation.PreDestroy;
+
 import static io.mosip.packet.core.constant.GlobalConfig.SESSION_KEY;
 import static io.mosip.packet.core.constant.GlobalConfig.*;
 import static io.mosip.packet.core.constant.RegistrationConstants.*;
@@ -120,6 +122,55 @@ public class DataBaseUtil implements DataReader {
         }
 
     }
+    
+    @Override
+    public void setupDatabase(DBImportRequest dbImportRequest) throws SQLException {
+        try {
+            if(dataSource == null) {
+            	HikariConfig config = new HikariConfig();
+            	config.setUsername(dbImportRequest.getUserId());
+            	config.setPassword(dbImportRequest.getPassword());
+            	config.setJdbcUrl(dbImportRequest.getOracleDBUrl());
+            	
+                config.setMaximumPoolSize(dbImportRequest.getMaximumPoolSize()); // Max number of connections in the pool
+                config.setMinimumIdle(dbImportRequest.getMinimumIdleConnections());    // Min number of idle connections
+                config.setConnectionTimeout(dbImportRequest.getConnectionTimeout()); // Max time to wait for a connection (ms)
+                config.setIdleTimeout(dbImportRequest.getIdleTimeout()); // Max idle time before closing (ms) - 10 minutes
+                config.setMaxLifetime(dbImportRequest.getMaxLifeTime()); // Max connection lifetime (ms) - 30 minutes
+                config.setLeakDetectionThreshold(dbImportRequest.getLeakDetectionThreshold()); // Detect connection leaks (ms)
+
+                config.setConnectionTestQuery("SELECT 1 FROM DUAL"); // For Oracle
+                dataSource = new HikariDataSource(config);
+                
+            	dbType = dbImportRequest.getDbType();
+//              Class driverClass = Class.forName(dbType.getDriver());
+//              DriverManager.registerDriver((Driver) driverClass.newInstance());
+                String connectionHost = String.format(dbType.getDriverUrl(), dbImportRequest.getUrl(), dbImportRequest.getPort(), dbImportRequest.getDatabaseName());
+//              conn = DriverManager.getConnection(connectionHost, dbImportRequest.getUserId(), dbImportRequest.getPassword());
+
+                isTrackerSameHost = trackerUtil.isTrackerHostSame(connectionHost, dbImportRequest.getDatabaseName());
+                trackColumn = dbImportRequest.getTrackerInfo().getTrackerColumn();
+
+                LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "External DataBase" + dbImportRequest.getUrl() +  "Database Successfully connected");
+                System.out.println("External DataBase " + dbImportRequest.getUrl() + " Successfully connected");
+            }
+        } catch (Exception e) {
+            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Connecting Database " + ExceptionUtils.getStackTrace(e));
+            System.exit(1);
+        }
+    }
+    
+    @PreDestroy
+    public void closeDatabaseSetup() {
+		if (dataSource != null) {
+			try {
+				dataSource.close();
+			} catch (Exception e) {
+				LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID,
+						" Error While Closing Database Connection " + e.getMessage());
+			}
+		}
+	}
 
     private void initializeDocumentMap(DBImportRequest dbImportRequest, Map<String, HashMap<String, String>> fieldsCategoryMap) {
         if(documentValue.isEmpty())
@@ -482,83 +533,69 @@ public class DataBaseUtil implements DataReader {
     	LOGGER.info("Reading data from database for given nin");
     	
     	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
-        try {
-            if (conn != null) {
-                LOGGER.info("Connection is not null");
-                initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
-                
-                PreparedStatement statement1 = null;
-                ResultSet scrollableResultSet = null;
-                
-                if(IS_TRACKER_REQUIRED)
-                    trackerUtil.closeStatement();
-                
-                List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
-                Collections.sort(tableRequestDtoList);
-                TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
-                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                LOGGER.info("Checking for connection validity");
-                if(conn.isValid(6000)) {
-                    LOGGER.info("Connection is valid, execution the statement query");
-                	scrollableResultSet = statement1.executeQuery();
-                }else {
-                	conn.close();
-                	connectDatabase(dbImportRequest);
-                	statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                	scrollableResultSet = statement1.executeQuery();
-                    LOGGER.info("Connection is closed, created new connection and executing the query");
-                }
+        try (Connection conn = dataSource.getConnection()) {
+        	LOGGER.info("Connection acquired from pool");
+            initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
+            
+            PreparedStatement statement1 = null;
+            ResultSet scrollableResultSet = null;
+            
+            if(IS_TRACKER_REQUIRED)
+                trackerUtil.closeStatement();
+            
+            List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
+            Collections.sort(tableRequestDtoList);
+            TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
+            statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            scrollableResultSet = statement1.executeQuery();
 
-                if (scrollableResultSet.first()) {
-                    try {
-                    	LOGGER.info("extracting data to desired format");
-                        Map<String, Object> resultData = extractResultSet(scrollableResultSet);
+            if (scrollableResultSet.first()) {
+                try {
+                	LOGGER.info("extracting data to desired format");
+                    Map<String, Object> resultData = extractResultSet(scrollableResultSet);
 
-                        populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
+                    populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
 
-                        if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketProcessed.isValue()) {
-                        	for (int i = 1; i < tableRequestDtoList.size(); i++) {
-                                PreparedStatement statement2 = null;
-                                ResultSet resultSet1 = null;
-                                try {
-                                    TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
-                                    statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                                    resultSet1 = statement2.executeQuery();
+                    if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketProcessed.isValue()) {
+                    	for (int i = 1; i < tableRequestDtoList.size(); i++) {
+                            PreparedStatement statement2 = null;
+                            ResultSet resultSet1 = null;
+                            try {
+                                TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
+                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                resultSet1 = statement2.executeQuery();
 
-                                    Map<String, Object> resultData1 = new HashMap<>();
-                                    while (resultSet1 != null && resultSet1.next()) {
-                                        resultData1.putAll(extractResultSet(resultSet1));
-                                    }
-
-                                    if (resultData1 != null)
-                                        populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataMap, fieldsCategoryMap, false);
-                                } finally {
-                                    if (resultSet1 != null)
-                                        resultSet1.close();
-
-                                    if (statement2 != null)
-                                        statement2.close();
+                                Map<String, Object> resultData1 = new HashMap<>();
+                                while (resultSet1 != null && resultSet1.next()) {
+                                    resultData1.putAll(extractResultSet(resultSet1));
                                 }
-                            }
-                        } else {
-                        	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
-                        	isPacketProcessed.setValue(true);
-                        }
-                    } catch (Exception e) {
-                        LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
-                        throw e;
-                    } finally {
-                        if (scrollableResultSet != null)
-                            scrollableResultSet.close();
 
-                        if (statement1 != null)
-                            statement1.close();
+                                if (resultData1 != null)
+                                    populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataMap, fieldsCategoryMap, false);
+                            } finally {
+                                if (resultSet1 != null)
+                                    resultSet1.close();
+
+                                if (statement2 != null)
+                                    statement2.close();
+                            }
+                        }
+                    } else {
+                    	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
+                    	isPacketProcessed.setValue(true);
                     }
-                } else {
-                	LOGGER.info("No data found for given nin in database");
+                } catch (Exception e) {
+                    LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
+                    throw e;
+                } finally {
+                    if (scrollableResultSet != null)
+                        scrollableResultSet.close();
+
+                    if (statement1 != null)
+                        statement1.close();
                 }
             } else {
-                throw new SQLException("Unable to Connect With Database. Please check the Configuration");
+            	LOGGER.info("No data found for given nin in database");
             }
         } catch (Exception e) {
             throw e;

@@ -488,7 +488,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 			LOGGER.info("Validating request for filters");
 			validationUtil.validateRequest(onDemandDbImportRequest, enumList);
 			
-			dataReaderApiFactory.connectDataReader(onDemandDbImportRequest);
+			dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
 			BooleanWrapper isPacketProcessed = new BooleanWrapper();
 			isPacketProcessed.setValue(false);
 			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketProcessed);
@@ -557,9 +557,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw e;
-		} finally {
-            dataReaderApiFactory.disconnectDataReader();
-        }
+		}
     	
     	return isPacketCreationProcess ? packetResponse : response;
     }
