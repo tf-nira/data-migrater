@@ -90,7 +90,7 @@ public class DataProcessApplication {
 
   // TODO Temporary removing this Need uncomment
                 //  if(!IS_RUNNING_AS_BATCH)
-                    System.exit(0);
+                    //System.exit(0);
             }
         } catch (UnknownHostException e) {
             e.printStackTrace();

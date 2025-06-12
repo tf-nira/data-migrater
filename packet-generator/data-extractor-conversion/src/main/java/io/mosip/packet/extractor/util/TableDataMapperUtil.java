@@ -278,7 +278,8 @@ public class TableDataMapperUtil implements DataMapperUtil {
             int attempts = 0;
             while (attempts < MAX_RETRIES) {
             	try {
-                    return blobObj.getBytes(1, (int) blobObj.length());
+            		int blobLength = (int)blobObj.length();
+                    return blobObj.getBytes(1, blobLength);
                 } catch (SQLException e) {
                 	if (e instanceof SQLRecoverableException ||
                             (e.getMessage() != null && e.getMessage().toLowerCase().contains("closed connection"))) {
@@ -289,6 +290,7 @@ public class TableDataMapperUtil implements DataMapperUtil {
                         if (attempts < MAX_RETRIES) {
                             try {
                                 TimeUnit.MILLISECONDS.sleep(RETRY_DELAY_MS);
+                                LOGGER.info("Attempt " + attempts + " Waiting blob to return.................................................");
                             } catch (InterruptedException ie) {
                                 Thread.currentThread().interrupt();
                                 throw new IOException("Blob conversion interrupted during retry delay.", ie);
