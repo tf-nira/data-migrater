@@ -13,4 +13,5 @@ public interface DataReaderApiFactory {
     public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, BooleanWrapper isPacketProcessed) throws Exception;
     public void connectDataReader(DBImportRequest dbImportRequest) throws Exception;
     public void disconnectDataReader() throws Exception;
+    public void setupDatabase(DBImportRequest dbImportRequest) throws Exception;
 }

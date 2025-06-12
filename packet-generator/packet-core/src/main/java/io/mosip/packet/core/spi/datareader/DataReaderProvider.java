@@ -57,4 +57,9 @@ public class DataReaderProvider implements DataReaderApiFactory {
     public void disconnectDataReader() throws Exception {
         getReader().disconnectDataReader();
     }
+    
+    @Override
+    public void setupDatabase(DBImportRequest dbImportRequest) throws Exception {
+        getReader().setupDatabase(dbImportRequest);
+    }
 }
