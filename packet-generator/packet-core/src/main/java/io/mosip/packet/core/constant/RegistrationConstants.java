@@ -23,8 +23,8 @@ public class RegistrationConstants {
 
 	}
 
-	public static final String TRACKER_TABLE_NAME = "PACKET_TRACKER";
-	public static final String OFFSET_TRACKER_TABLE_NAME = "OFFSET_TRACKER";
+	public static final String TRACKER_TABLE_NAME = "PACKET_TRACKER_PREPROD";
+	public static final String OFFSET_TRACKER_TABLE_NAME = "OFFSET_TRACKER_PREPROD";
 	public static final String DEFAULT_TABLE = "default";
 	public static final String SUCCESS = "Success";
 	public static final String FAILURE = "Fail";
