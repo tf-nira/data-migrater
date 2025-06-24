@@ -403,20 +403,27 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public PacketResponseDto getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception {
     	LOGGER.info("Checking packet status");
     	
-    	updateNinFilter(packetStatusRequest);
+    	//updateNinFilter(packetStatusRequest);
 		
 		LOGGER.info("Starting packet creation");
 
-		return (PacketResponseDto) processPacket(true);
+		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), null);
+    }
+    
+    @Override
+    public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
+		LOGGER.info("Starting packet creation");
+
+		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), packetStatusRequest.getDependentRid());
     }
     
     @Override
     public NINDetailsResponseDto getNINDetails(PacketStatusRequest packetStatusRequest) throws Exception {
     	LOGGER.info("Getting packet details for nin");
     	
-    	updateNinFilter(packetStatusRequest);
+    	//updateNinFilter(packetStatusRequest);
 
-		return (NINDetailsResponseDto) processPacket(false);
+		return (NINDetailsResponseDto) processPacket(false, packetStatusRequest.getNin(), null);
     }
     
     private void updateNinFilter(PacketStatusRequest packetStatusRequest) throws Exception {
@@ -459,7 +466,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 		}
     }
     
-    private Object processPacket(boolean isPacketCreationProcess) throws Exception {
+    private Object processPacket(boolean isPacketCreationProcess, String nin, String dependentRid) throws Exception {
     	NINDetailsResponseDto response = new NINDetailsResponseDto();
     	PacketResponseDto packetResponse = new PacketResponseDto();
     	try {
@@ -491,7 +498,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 			dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
 			BooleanWrapper isPacketProcessed = new BooleanWrapper();
 			isPacketProcessed.setValue(false);
-			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketProcessed);
+			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketProcessed, isPacketCreationProcess, nin);
 			
 			if (dataHashMap == null || dataHashMap.isEmpty()) {
 				throw new Exception("No data found for given nin");
@@ -537,6 +544,10 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
 	                trackerRequestDto.setComments("Object Ready For Processing");
 	                trackerUtil.addTrackerEntry(trackerRequestDto);
+	                
+	                if (dependentRid != null) {
+	                	dataHashMap.get(FieldCategory.DEMO).put("dependentRid", dependentRid);
+	                }
 	                
 	                LOGGER.info("Processing data");
 	                DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);

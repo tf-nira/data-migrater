@@ -193,7 +193,7 @@ public class DataBaseUtil implements DataReader {
             }
     }
 
-    private String generateQuery(TableRequestDto tableRequestDto, Map<FieldCategory, HashMap<String, Object>> dataMap, Map<String, HashMap<String, String>> fieldsCategoryMap) throws Exception {
+    private String generateQuery(TableRequestDto tableRequestDto, Map<FieldCategory, HashMap<String, Object>> dataMap, Map<String, HashMap<String, String>> fieldsCategoryMap, String nin) throws Exception {
         if (tableRequestDto.getQueryType().equals(QuerySelection.TABLE)) {
             String tableName = tableRequestDto.getTableNameWithOutSchema();
             List<String> ignoreFields = commonUtil.getNonIdSchemaNonTableFieldsMap();
@@ -253,6 +253,11 @@ public class DataBaseUtil implements DataReader {
 
                 selectSql += filterCondition;
             }
+            
+            if (nin != null) {
+            	filterCondition = " WHERE NATIONAL_ID = '" + nin + "' ";
+            	selectSql += filterCondition;
+            }
 
             filterCondition = "";
 
@@ -279,7 +284,7 @@ public class DataBaseUtil implements DataReader {
             }
             }
             String sqlQuery =  formatter.replaceColumntoDataIfAny(selectSql, dataMap);
-            LOGGER.debug("SESSION_ID", "DATA_READER", "generateQuery()", "SQL Query Generated : " + sqlQuery);
+            LOGGER.info("SESSION_ID", "DATA_READER", "generateQuery()", "SQL Query Generated : " + sqlQuery);
             return sqlQuery;
         } else if (tableRequestDto.getQueryType().equals(QuerySelection.SQL_QUERY)) {
             String sqlQuery = tableRequestDto.getSqlQuery().toUpperCase();
@@ -432,7 +437,7 @@ public class DataBaseUtil implements DataReader {
                                 List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
                                 Collections.sort(tableRequestDtoList);
                                 TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
-                                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap, null), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                                 scrollableResultSet = statement1.executeQuery();
 
                                 if(scrollableResultSet.last()) {
@@ -474,7 +479,7 @@ public class DataBaseUtil implements DataReader {
                                                             ResultSet resultSet1 = null;
                                                             try {
                                                                 TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
-                                                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataHashMap, fieldsCategoryMap, null), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                                                                 resultSet1 = statement2.executeQuery();
 
                                                                 Map<String, Object> resultData1 = new HashMap<>();
@@ -529,7 +534,7 @@ public class DataBaseUtil implements DataReader {
     }
     
     @Override
-    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, BooleanWrapper isPacketProcessed) throws Exception {
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, BooleanWrapper isPacketProcessed, boolean isPacketCreationProcess, String nin) throws Exception {
     	LOGGER.info("Reading data from database for given nin");
     	
     	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
@@ -546,7 +551,7 @@ public class DataBaseUtil implements DataReader {
             List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
             Collections.sort(tableRequestDtoList);
             TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
-            statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap, nin), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
             scrollableResultSet = statement1.executeQuery();
 
             if (scrollableResultSet.first()) {
@@ -556,13 +561,13 @@ public class DataBaseUtil implements DataReader {
 
                     populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
 
-                    if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketProcessed.isValue()) {
+                    if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketCreationProcess) {
                     	for (int i = 1; i < tableRequestDtoList.size(); i++) {
                             PreparedStatement statement2 = null;
                             ResultSet resultSet1 = null;
                             try {
                                 TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
-                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap, nin), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                                 resultSet1 = statement2.executeQuery();
 
                                 Map<String, Object> resultData1 = new HashMap<>();
