@@ -421,11 +421,14 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     }
     
     @Override
-    public String createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
+    public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
 		LOGGER.info("Starting packet creation");
 
-        saveOndemandRequest(packetStatusRequest);
-        return "On-demand Initiated";
+        PacketResponseDto response = new PacketResponseDto();
+        response.setRid("NIN::" + packetStatusRequest.getNin());
+        response.setStatus(saveOndemandRequest(packetStatusRequest) ? "On-demand Initiated" : "Failed to initialize on-demand");
+
+        return response;
 //		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), packetStatusRequest.getDependentRid());
     }
     
@@ -740,40 +743,14 @@ public class DataExtractionServiceImpl implements DataExtractionService {
         }
     }
 
-    private void saveOndemandRequest(CreatePacketRequest request) {
+    private boolean saveOndemandRequest(CreatePacketRequest request) throws Exception {
         try {
-            if (conn == null) {
-                DBTypes dbType = Enum.valueOf(DBTypes.class, env.getProperty("spring.datasource.tracker.dbtype"));
-                Class<?> driverClass = Class.forName(dbType.getDriver());
-                DriverManager.registerDriver((Driver) driverClass.newInstance());
-                connectionHost = String.format(dbType.getDriverUrl(),
-                        env.getProperty("spring.datasource.tracker.host"),
-                        env.getProperty("spring.datasource.tracker.port"),
-                        env.getProperty("spring.datasource.tracker.database"));
-                conn = DriverManager.getConnection(connectionHost,
-                        env.getProperty("spring.datasource.tracker.username"),
-                        env.getProperty("spring.datasource.tracker.password"));
-                conn.setAutoCommit(true);
-            }
 
-            String tableName = env.getProperty("spring.datasource.ondemand.table.name");
-            String sql = String.format(
-                    "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"CR_DTIMES\") " +
-                            "VALUES (?, ?, ?)",
-                    tableName
-            );
+            dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
+            return dataReaderApiFactory.insertOnDemandData(request.getNin(), request.getDependentRid());
 
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, request.getNin());
-                ps.setString(2, request.getDependentRid());
-                ps.setString(3, LocalDateTime.now().toString());
-                int rowsInserted = ps.executeUpdate();
-                System.out.println("Rows inserted: " + rowsInserted);
-            }
-
-
-        } catch (SQLException | InstantiationException | IllegalAccessException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw e;
         }
     }
 }

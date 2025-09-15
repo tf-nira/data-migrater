@@ -24,11 +24,13 @@ import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -77,6 +79,9 @@ public class DataBaseUtil implements DataReader {
 
     @Autowired
     private Activity activity;
+
+    @Autowired
+    private Environment env;
 
     private boolean oneTimeCheckForZeroOffset;
 
@@ -618,5 +623,28 @@ public class DataBaseUtil implements DataReader {
     @Override
     public void disconnectDataReader() {
         closeConnection();
+    }
+
+    @Override
+    public boolean insertOnDemandData(String nin, String dependantRid) throws Exception {
+        try (Connection conn = dataSource.getConnection()) {
+
+            String tableName = env.getProperty("spring.datasource.ondemand.table.name");
+            String sql = String.format(
+                    "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"CR_DTIMES\") " +
+                            "VALUES (?, ?, ?)",
+                    tableName
+            );
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            ps.setString(1, nin);
+            ps.setString(2, dependantRid);
+            ps.setString(3, LocalDateTime.now().toString());
+            int rowsInserted = ps.executeUpdate();
+            System.out.println("Rows inserted: " + rowsInserted);
+            return rowsInserted > 0;
+        }
+
     }
 }

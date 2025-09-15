@@ -14,4 +14,5 @@ public interface DataReader {
     public void connectDataReader(DBImportRequest dbImportRequest) throws Exception;
     public void disconnectDataReader();
     public void setupDatabase(DBImportRequest dbImportRequest) throws Exception;
+    public boolean insertOnDemandData(String nin, String dependantRid) throws Exception;
 }

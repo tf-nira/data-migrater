@@ -62,4 +62,9 @@ public class DataReaderProvider implements DataReaderApiFactory {
     public void setupDatabase(DBImportRequest dbImportRequest) throws Exception {
         getReader().setupDatabase(dbImportRequest);
     }
+
+    @Override
+    public boolean insertOnDemandData(String nin, String dependantRid) throws Exception {
+        return getReader().insertOnDemandData(nin,dependantRid);
+    }
 }

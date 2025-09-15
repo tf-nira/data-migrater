@@ -19,7 +19,7 @@ public interface DataExtractionService {
     public PacketCreatorResponse createPacketFromDataBase(DBImportRequest dbImportRequest) throws SQLException, IOException, Exception;
     public String refreshQualityAnalysisData() throws Exception;
     public PacketResponseDto getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception;
-    public String createPacket(CreatePacketRequest packetStatusRequest) throws Exception;
+    public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception;
     public NINDetailsResponseDto getNINDetails(PacketStatusRequest packetStatusRequest) throws Exception;
     public String extractBioDataFromPacket(RegistrationIdRequest registrationIdRequest) throws Exception;
 }

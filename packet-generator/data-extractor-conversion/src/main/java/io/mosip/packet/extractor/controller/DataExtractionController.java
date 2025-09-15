@@ -245,7 +245,7 @@ public class DataExtractionController {
     
     @PostMapping(value = "/createPacket", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ResponseWrapper> createPacket(@RequestBody RequestWrapper<CreatePacketRequest> request) {
-        ResponseWrapper<String> responseWrapper = new ResponseWrapper();
+        ResponseWrapper<PacketResponseDto> responseWrapper = new ResponseWrapper();
         try {
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: createPacket():: entry");
             responseWrapper.setResponse(dataExtractionService.createPacket(request.getRequest()));
