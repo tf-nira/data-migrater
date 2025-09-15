@@ -45,6 +45,7 @@ import lombok.SneakyThrows;
 import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +54,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -140,7 +144,13 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Autowired
     private Activity activity;
-    
+
+    @Autowired
+    private Environment env;
+
+    private static Connection conn = null;
+    private static String connectionHost = null;
+
     @PostConstruct
     public void runAtStartup() {
     	if (!IS_RUNNING_AS_BATCH) {
@@ -411,10 +421,12 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     }
     
     @Override
-    public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
+    public String createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
 		LOGGER.info("Starting packet creation");
 
-		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), packetStatusRequest.getDependentRid());
+        saveOndemandRequest(packetStatusRequest);
+        return "On-demand Initiated";
+//		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), packetStatusRequest.getDependentRid());
     }
     
     @Override
@@ -725,6 +737,43 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     fieldsCategoryMap.get(tableName).put(fieldFormatRequest.getFieldNameWithoutSchema(documentValueMap.getMapColumnName()), null);
                 }
             }
+        }
+    }
+
+    private void saveOndemandRequest(CreatePacketRequest request) {
+        try {
+            if (conn == null) {
+                DBTypes dbType = Enum.valueOf(DBTypes.class, env.getProperty("spring.datasource.tracker.dbtype"));
+                Class<?> driverClass = Class.forName(dbType.getDriver());
+                DriverManager.registerDriver((Driver) driverClass.newInstance());
+                connectionHost = String.format(dbType.getDriverUrl(),
+                        env.getProperty("spring.datasource.tracker.host"),
+                        env.getProperty("spring.datasource.tracker.port"),
+                        env.getProperty("spring.datasource.tracker.database"));
+                conn = DriverManager.getConnection(connectionHost,
+                        env.getProperty("spring.datasource.tracker.username"),
+                        env.getProperty("spring.datasource.tracker.password"));
+                conn.setAutoCommit(true);
+            }
+
+            String tableName = env.getProperty("spring.datasource.ondemand.table.name");
+            String sql = String.format(
+                    "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"CR_DTIMES\") " +
+                            "VALUES (?, ?, ?)",
+                    tableName
+            );
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, request.getNin());
+                ps.setString(2, request.getDependentRid());
+                ps.setString(3, LocalDateTime.now().toString());
+                int rowsInserted = ps.executeUpdate();
+                System.out.println("Rows inserted: " + rowsInserted);
+            }
+
+
+        } catch (SQLException | InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+            throw new RuntimeException(e);
         }
     }
 }
