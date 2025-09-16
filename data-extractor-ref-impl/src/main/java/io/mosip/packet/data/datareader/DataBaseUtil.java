@@ -626,8 +626,25 @@ public class DataBaseUtil implements DataReader {
     }
 
     @Override
-    public boolean insertOnDemandData(String nin, String dependantRid) throws Exception {
+    public String insertOnDemandData(String nin, String dependantRid) throws Exception {
         try (Connection conn = dataSource.getConnection()) {
+            String checkSql = "SELECT NATIONAL_ID, APPLICATION_ID FROM ZTMP_MOSIP_SDMS WHERE NATIONAL_ID = ?";
+
+            PreparedStatement checkPs = conn.prepareStatement(checkSql);
+            checkPs.setString(1, nin);
+            ResultSet result = checkPs.executeQuery();
+
+            // Collect APPLICATION_IDs in a list
+            List<String> applicationIds = new ArrayList<>();
+            int rowCount = 0;
+            while (result.next()) {
+                applicationIds.add(result.getString("APPLICATION_ID"));
+                rowCount++;
+            }
+
+            if (rowCount == 0) {
+                throw new Exception("No data found for given nin");
+            }
 
             String tableName = env.getProperty("spring.datasource.ondemand.table.name");
             String sql = String.format(
@@ -642,9 +659,10 @@ public class DataBaseUtil implements DataReader {
             ps.setString(2, dependantRid);
             ps.setString(3, LocalDateTime.now().toString());
             int rowsInserted = ps.executeUpdate();
-            System.out.println("Rows inserted: " + rowsInserted);
-            return rowsInserted > 0;
-        }
 
+            LOGGER.info("Ondemand Data Inserted :: " + rowsInserted);
+
+            return applicationIds.get(0);
+        }
     }
 }

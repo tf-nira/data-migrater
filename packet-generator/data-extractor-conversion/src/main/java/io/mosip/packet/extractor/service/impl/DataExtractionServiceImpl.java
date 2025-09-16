@@ -424,12 +424,13 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
 		LOGGER.info("Starting packet creation");
 
+        String rid = saveOndemandRequest(packetStatusRequest);
+
         PacketResponseDto response = new PacketResponseDto();
-        response.setRid("NIN::" + packetStatusRequest.getNin());
-        response.setStatus(saveOndemandRequest(packetStatusRequest) ? "On-demand Initiated" : "Failed to initialize on-demand");
+        response.setRid(rid);
+        response.setStatus("Ondemand-Initiated");
 
         return response;
-//		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), packetStatusRequest.getDependentRid());
     }
     
     @Override
@@ -743,14 +744,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
         }
     }
 
-    private boolean saveOndemandRequest(CreatePacketRequest request) throws Exception {
-        try {
+    private String saveOndemandRequest(CreatePacketRequest request) throws Exception {
 
-            dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
-            return dataReaderApiFactory.insertOnDemandData(request.getNin(), request.getDependentRid());
-
-        } catch (Exception e) {
-            throw e;
-        }
+        dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
+        return dataReaderApiFactory.insertOnDemandData(request.getNin(), request.getDependentRid());
     }
 }

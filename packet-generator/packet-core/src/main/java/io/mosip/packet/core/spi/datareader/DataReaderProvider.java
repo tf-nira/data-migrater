@@ -64,7 +64,7 @@ public class DataReaderProvider implements DataReaderApiFactory {
     }
 
     @Override
-    public boolean insertOnDemandData(String nin, String dependantRid) throws Exception {
+    public String insertOnDemandData(String nin, String dependantRid) throws Exception {
         return getReader().insertOnDemandData(nin,dependantRid);
     }
 }
