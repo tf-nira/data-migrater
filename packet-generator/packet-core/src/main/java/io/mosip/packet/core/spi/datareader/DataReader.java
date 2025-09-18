@@ -2,6 +2,7 @@ package io.mosip.packet.core.spi.datareader;
 
 import io.mosip.packet.core.constant.FieldCategory;
 import io.mosip.packet.core.dto.BooleanWrapper;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.service.thread.ResultSetter;
 
@@ -14,5 +15,5 @@ public interface DataReader {
     public void connectDataReader(DBImportRequest dbImportRequest) throws Exception;
     public void disconnectDataReader();
     public void setupDatabase(DBImportRequest dbImportRequest) throws Exception;
-    public String insertOnDemandData(String nin, String dependantRid) throws Exception;
+    public PacketResponseDto insertOnDemandData(String nin, String dependantRid) throws Exception;
 }

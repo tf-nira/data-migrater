@@ -424,13 +424,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
 		LOGGER.info("Starting packet creation");
 
-        String rid = saveOndemandRequest(packetStatusRequest);
-
-        PacketResponseDto response = new PacketResponseDto();
-        response.setRid(rid);
-        response.setStatus("Ondemand-Initiated");
-
-        return response;
+        return saveOndemandRequest(packetStatusRequest);
     }
     
     @Override
@@ -744,7 +738,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
         }
     }
 
-    private String saveOndemandRequest(CreatePacketRequest request) throws Exception {
+    private PacketResponseDto saveOndemandRequest(CreatePacketRequest request) throws Exception {
 
         dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
         return dataReaderApiFactory.insertOnDemandData(request.getNin(), request.getDependentRid());

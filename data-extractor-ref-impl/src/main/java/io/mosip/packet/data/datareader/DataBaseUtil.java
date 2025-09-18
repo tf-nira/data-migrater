@@ -9,6 +9,7 @@ import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.database.QueryLimitSetter;
 import io.mosip.packet.core.constant.database.QueryOffsetLimitSetter;
 import io.mosip.packet.core.dto.BooleanWrapper;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.dbimport.*;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.service.thread.CustomizedThreadPoolExecutor;
@@ -626,7 +627,8 @@ public class DataBaseUtil implements DataReader {
     }
 
     @Override
-    public String insertOnDemandData(String nin, String dependantRid) throws Exception {
+    public PacketResponseDto insertOnDemandData(String nin, String dependantRid) throws Exception {
+        PacketResponseDto res = new PacketResponseDto();
         try (Connection conn = dataSource.getConnection()) {
             String checkSql = "SELECT NATIONAL_ID, APPLICATION_ID FROM ZTMP_MOSIP_SDMS WHERE NATIONAL_ID = ?";
 
@@ -646,6 +648,8 @@ public class DataBaseUtil implements DataReader {
                 throw new Exception("No data found for given nin");
             }
 
+            res.setRid(applicationIds.get(0));
+
             String tableName = env.getProperty("spring.datasource.ondemand.table.name");
             String sql = String.format(
                     "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"CR_DTIMES\") " +
@@ -655,14 +659,23 @@ public class DataBaseUtil implements DataReader {
 
             PreparedStatement ps = conn.prepareStatement(sql);
 
-            ps.setString(1, nin);
-            ps.setString(2, dependantRid);
-            ps.setString(3, LocalDateTime.now().toString());
-            int rowsInserted = ps.executeUpdate();
+            try {
+                ps.setString(1, nin);
+                ps.setString(2, dependantRid);
+                ps.setString(3, LocalDateTime.now().toString());
+                int rowsInserted = ps.executeUpdate();
 
-            LOGGER.info("Ondemand Data Inserted :: " + rowsInserted);
+                LOGGER.info("Ondemand Data Inserted :: " + rowsInserted);
+                res.setStatus("Ondemand Initiated");
 
-            return applicationIds.get(0);
+            } catch (SQLException e) {
+                if (e.getMessage().contains("unique constraint")) {
+                    res.setStatus("Packet already processed");
+                }
+                else throw e;
+            }
+
+            return res;
         }
     }
 }

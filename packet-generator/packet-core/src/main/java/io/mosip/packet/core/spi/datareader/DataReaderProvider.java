@@ -2,6 +2,7 @@ package io.mosip.packet.core.spi.datareader;
 
 import io.mosip.packet.core.constant.FieldCategory;
 import io.mosip.packet.core.dto.BooleanWrapper;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.service.thread.ResultSetter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,7 +65,7 @@ public class DataReaderProvider implements DataReaderApiFactory {
     }
 
     @Override
-    public String insertOnDemandData(String nin, String dependantRid) throws Exception {
+    public PacketResponseDto insertOnDemandData(String nin, String dependantRid) throws Exception {
         return getReader().insertOnDemandData(nin,dependantRid);
     }
 }
