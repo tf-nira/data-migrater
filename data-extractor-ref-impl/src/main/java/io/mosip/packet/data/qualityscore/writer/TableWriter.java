@@ -81,13 +81,19 @@ public class TableWriter implements QualityWriterFactory {
                         boolean ifTablePresent = statement.execute("SELECT COUNT(*) FROM " + WRITER_TABLE_NAME);
 
                         if(ifTablePresent) {
-                            System.out.println("Table : " + WRITER_TABLE_NAME +  " Do you want to clear Table ? Y-Yes, N-No");
-                            String option ="";
-                            if(!IS_RUNNING_AS_BATCH) {
-                                Scanner scanner = new Scanner(System.in);
-                                option = scanner.next();
-                            } else if(tableClearRequired) {
+//                            System.out.println("Table : " + WRITER_TABLE_NAME +  " Do you want to clear Table ? Y-Yes, N-No");
+//                            String option ="";
+//                            if(!IS_RUNNING_AS_BATCH) {
+//                                Scanner scanner = new Scanner(System.in);
+//                                option = scanner.next();
+//                            } else if(tableClearRequired) {
+//                                option = "Y";
+//                            }
+                        	String option ="";
+                            if(tableClearRequired) {
                                 option = "Y";
+                            } else {
+                            	option = "N";
                             }
 
                             if(option.equalsIgnoreCase("y")) {
