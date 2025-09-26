@@ -255,7 +255,7 @@ public class TrackerUtil {
                 String query = TableQueries.getInsertQueries(OFFSET_TRACKER_TABLE_NAME, dbType);
                 Map<String, String> valueMap = new HashMap<>();
                 valueMap.put("TABLE_NAME", OFFSET_TRACKER_TABLE_NAME);
-                valueMap.put("SESSION_ID", SESSION_KEY);
+                valueMap.put("SESSION_ID", OFFSET_SESSION_KEY);
                 valueMap.put("VALUE", offset.toString());
                 valueMap.put("IN_USE", "N");
 
@@ -282,13 +282,13 @@ public class TrackerUtil {
                     Thread.sleep(2000);
 
                 statement = conn.createStatement();
-                resultSet = statement.executeQuery("SELECT OFFSET_VALUE, IN_USE FROM " + OFFSET_TRACKER_TABLE_NAME + " WHERE SESSION_KEY = '" + SESSION_KEY + "'");
+                resultSet = statement.executeQuery("SELECT OFFSET_VALUE, IN_USE FROM " + OFFSET_TRACKER_TABLE_NAME + " WHERE SESSION_KEY = '" + OFFSET_SESSION_KEY + "'");
                 if(resultSet.next()) {
                     Long value = resultSet.getLong(1);
                     String inUse = resultSet.getString(2);
 
                     if(inUse == null || inUse.equals("N") || inUse.isEmpty()) {
-                        statement.executeUpdate("UPDATE " + OFFSET_TRACKER_TABLE_NAME + " SET IN_USE = 'Y' WHERE SESSION_KEY = '" + SESSION_KEY + "'");
+                        statement.executeUpdate("UPDATE " + OFFSET_TRACKER_TABLE_NAME + " SET IN_USE = 'Y' WHERE SESSION_KEY = '" + OFFSET_SESSION_KEY + "'");
                         return value;
                     } else {
                         LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "OffSet Tracker Table in Use retry after 5 seconds");
@@ -299,7 +299,7 @@ public class TrackerUtil {
                     String query = TableQueries.getInsertQueries(OFFSET_TRACKER_TABLE_NAME, dbType);
                     Map<String, String> valueMap = new HashMap<>();
                     valueMap.put("TABLE_NAME", OFFSET_TRACKER_TABLE_NAME);
-                    valueMap.put("SESSION_ID", SESSION_KEY);
+                    valueMap.put("SESSION_ID", OFFSET_SESSION_KEY);
                     valueMap.put("VALUE", "0");
                     valueMap.put("IN_USE", "Y");
                     statement.execute(queryFormatter.queryFormatter(query, valueMap));

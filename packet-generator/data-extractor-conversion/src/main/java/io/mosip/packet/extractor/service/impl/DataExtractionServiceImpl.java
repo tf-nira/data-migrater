@@ -293,7 +293,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
                     trackerRequestDto.setComments("Object Ready For Processing");
                     trackerUtil.addTrackerEntry(trackerRequestDto);
-                    LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "DataProcessor", "Request for Data Processor : " + trackerRequestDto.getRefId() + " : " + mapper.writeValueAsString(dataHashMap));
+//                    LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "DataProcessor", "Request for Data Processor : " + trackerRequestDto.getRefId() + " : " + mapper.writeValueAsString(dataHashMap));
                     DataProcessorResponseDto processObject = dataProcessorApiFactory.process(dbImportRequest, dataHashMap, setter);
 
                     if(!IS_ONLY_FOR_QUALITY_CHECK) {
