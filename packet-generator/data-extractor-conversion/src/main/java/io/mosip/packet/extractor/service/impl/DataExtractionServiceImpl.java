@@ -487,18 +487,22 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 @SneakyThrows
                 @Override
                 public void setResult(Object obj) {
-                	ResultDto resultDto = (ResultDto) obj;
-                    TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
-                    trackerRequestDto.setRegNo(resultDto.getRegNo());
-                    trackerRequestDto.setRefId(resultDto.getRefId());
-                    trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
-                    trackerRequestDto.setActivity(GlobalConfig.getActivityName());
-                    trackerRequestDto.setSessionKey(SESSION_KEY);
-                    trackerRequestDto.setStatus(resultDto.getStatus().toString());
-                    trackerRequestDto.setComments(resultDto.getComments());
-                    trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
-                    trackerUtil.addTrackerEntry(trackerRequestDto);
-                    trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(), onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY, GlobalConfig.getActivityName());
+                	if (isPacketCreationProcess) {
+						ResultDto resultDto = (ResultDto) obj;
+						TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+						trackerRequestDto.setRegNo(resultDto.getRegNo());
+						trackerRequestDto.setRefId(resultDto.getRefId());
+						trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+						trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+						trackerRequestDto.setSessionKey(SESSION_KEY);
+						trackerRequestDto.setStatus(resultDto.getStatus().toString());
+						trackerRequestDto.setComments(resultDto.getComments());
+						trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
+						trackerUtil.addTrackerEntry(trackerRequestDto);
+						trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(),
+								onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY,
+								GlobalConfig.getActivityName());
+					}
                 }
             };
 			
@@ -518,15 +522,15 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 				response.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
 		        
 				if (!isPacketProcessed.isValue()) {
-	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
-	                trackerRequestDto.setRegNo(null);
-	                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
-	                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
-	                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
-	                trackerRequestDto.setSessionKey(SESSION_KEY);
-	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
-	                trackerRequestDto.setComments("Object Ready For Processing");
-	                trackerUtil.addTrackerEntry(trackerRequestDto);
+//	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+//	                trackerRequestDto.setRegNo(null);
+//	                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+//	                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+//	                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+//	                trackerRequestDto.setSessionKey(SESSION_KEY);
+//	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
+//	                trackerRequestDto.setComments("Object Ready For Processing");
+//	                trackerUtil.addTrackerEntry(trackerRequestDto);
 	                
 					LOGGER.info("Processing data to get packet details");
 					DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
