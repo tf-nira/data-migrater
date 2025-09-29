@@ -278,9 +278,9 @@ public class DataBaseUtil implements DataReader {
 
                     filterCondition += trackColumn + String.format(" NOT IN (SELECT REF_ID FROM %s WHERE SESSION_KEY = '%s') ", TRACKER_TABLE_NAME, SESSION_KEY);
                     selectSql += filterCondition;
+                } else {
+                	selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
                 }
-
-                selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
 
                 if(tableRequestDto.getExecutionOrderSequence() == 1) {
                 if(!isPackerTrackerFilterRequired || !isTrackerSameHost)

@@ -27,6 +27,8 @@ public class GlobalConfig {
     public static Boolean WRITE_BIOSDK_RESPONSE = false;
 
     public static String SESSION_KEY;
+    
+    public static String OFFSET_SESSION_KEY;
 
     public static Boolean IS_TRACKER_REQUIRED = true;
 

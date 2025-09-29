@@ -49,6 +49,10 @@ public class DataProcessApplication {
                 SESSION_KEY = context.getEnvironment().getProperty("mosip.packet.creator.use.existing.session.key");
             else
                 SESSION_KEY = RandomStringUtils.randomAlphanumeric(20);
+            if(context.getEnvironment().getProperty("mosip.packet.creator.use.existing.offset.session.key") != null)
+            	OFFSET_SESSION_KEY = context.getEnvironment().getProperty("mosip.packet.creator.use.existing.offset.session.key");
+            else
+            	OFFSET_SESSION_KEY = SESSION_KEY;
 
             context.getBean(MockDeviceUtil.class).resetDevices();
             context.getBean(MockDeviceUtil.class).initDeviceHelpers();
