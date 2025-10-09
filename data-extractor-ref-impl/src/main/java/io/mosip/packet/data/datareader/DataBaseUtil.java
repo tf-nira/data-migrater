@@ -652,8 +652,8 @@ public class DataBaseUtil implements DataReader {
 
             String tableName = env.getProperty("spring.datasource.ondemand.table.name");
             String sql = String.format(
-                    "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"CR_DTIMES\") " +
-                            "VALUES (?, ?, ?)",
+                    "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"APPLICATION_ID\", \"CR_DTIMES\") " +
+                            "VALUES (?, ?, ?, ?)",
                     tableName
             );
 
@@ -662,7 +662,8 @@ public class DataBaseUtil implements DataReader {
             try {
                 ps.setString(1, nin);
                 ps.setString(2, dependantRid);
-                ps.setString(3, LocalDateTime.now().toString());
+                ps.setString(3, applicationIds.get(0));
+                ps.setString(4, LocalDateTime.now().toString());
                 int rowsInserted = ps.executeUpdate();
 
                 LOGGER.info("Ondemand Data Inserted :: " + rowsInserted);
