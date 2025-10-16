@@ -77,6 +77,12 @@ public class DataBaseUtil implements DataReader {
 
     @Value("${mosip.packet.tracker.filter.enabled:false}")
     private boolean isPackerTrackerFilterRequired;
+    
+    @Value("${mosip.ondemand.filter.enabled:false}")
+    private boolean isOndemandFilterRequired;
+    
+    @Value("${mosip.datareader.interval.seconds:70}")
+    private long dataReaderIntervalSeconds;
 
     @Autowired
     private Activity activity;
@@ -281,6 +287,18 @@ public class DataBaseUtil implements DataReader {
                 } else {
                 	selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
                 }
+                
+                if (isOndemandFilterRequired) {
+                	if (!whereCondition) {
+                        filterCondition = " WHERE ";
+                        whereCondition=true;
+                    } else {
+                        filterCondition = " AND ";
+                    }
+                	
+                	filterCondition += "NATIONAL_ID NOT IN (SELECT NIN FROM ONDEMAND) ";
+                    selectSql += filterCondition;
+                }
 
                 if(tableRequestDto.getExecutionOrderSequence() == 1) {
                 if(!isPackerTrackerFilterRequired || !isTrackerSameHost)
@@ -427,6 +445,7 @@ public class DataBaseUtil implements DataReader {
                         PreparedStatement statement1 = null;
                         ResultSet scrollableResultSet = null;
                         try {
+                        	LOGGER.info("Started data reader");
                             Float processPercentage = Float.valueOf((getPendingCountForProcess().floatValue() / Float.valueOf(dbReaderMaxThreadPoolCount * dbReaderMaxRecordsCountPerThreadPool)));
                             LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Database Reader Initial Condition for DB Read  ProcessPercentage, OFFSET_VALUE, OneTimeCheckForZeroOffset, CurrentPendingCount, PendingCountForProcess" +
                                     processPercentage, OFFSET_VALUE, oneTimeCheckForZeroOffset, threadPool.getCurrentPendingCount(), getPendingCountForProcess());
@@ -480,6 +499,8 @@ public class DataBaseUtil implements DataReader {
                                                     populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultMap, dataHashMap, fieldsCategoryMap, false);
 
                                                     if (!trackerUtil.isRecordPresent(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                                                    	Long startTime = System.currentTimeMillis();
+                                                    	LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Packet creation started for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
                                                         for (int i = 1; i < tableRequestDtoList.size(); i++) {
                                                             PreparedStatement statement2 = null;
                                                             ResultSet resultSet1 = null;
@@ -504,6 +525,9 @@ public class DataBaseUtil implements DataReader {
                                                             }
                                                         }
                                                         setter.setResult(dataHashMap);
+                                                        Long endTime = System.currentTimeMillis();
+                                                        Long timeDifference = endTime-startTime;
+                                                        LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Packet creation completed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()) + " time taken: " + timeDifference);
                                                     } else {
                                                         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
                                                     }
@@ -529,7 +553,7 @@ public class DataBaseUtil implements DataReader {
                                 statement1.close();
                         }
                     }
-                }, 0,  70000L);
+                }, 0,  dataReaderIntervalSeconds * 1000);
             } else
                 throw new SQLException("Unable to Connect With Database. Please check the Configuration");
         } catch(Exception e) {
