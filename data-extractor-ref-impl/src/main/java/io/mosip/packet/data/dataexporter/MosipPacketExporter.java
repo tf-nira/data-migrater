@@ -40,6 +40,7 @@ public class MosipPacketExporter implements DataExporter {
     @Override
     public Object export(DataPostProcessorResponseDto dataPostProcessorResponseDto, Long processStartTime, ResultSetter setter) throws Exception {
         String refId = dataPostProcessorResponseDto.getTrackerRefId();
+        LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Started for " + refId);
         PacketUploadDTO uploadDTO = (PacketUploadDTO) dataPostProcessorResponseDto.getResponses().get("uploadDTO");
 
         List<PacketUploadDTO> uploadList = new ArrayList<>();

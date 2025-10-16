@@ -495,6 +495,8 @@ public class DataBaseUtil implements DataReader {
                                                         dataHashMap.get(FieldCategory.DEMO).put("dependentRid", dependentRid);
                                                         
                                                         if (!trackerUtil.isRecordPresent(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                                                        	Long startTime = System.currentTimeMillis();
+                                                        	LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Packet creation started for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
                                                             for (int i = 2; i < tableRequestDtoList.size(); i++) {
                                                                 PreparedStatement statement2 = null;
                                                                 ResultSet resultSet1 = null;
@@ -519,6 +521,9 @@ public class DataBaseUtil implements DataReader {
                                                                 }
                                                             }
                                                             setter.setResult(dataHashMap);
+                                                            Long endTime = System.currentTimeMillis();
+                                                            Long timeDifference = endTime-startTime;
+                                                            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Packet creation completed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()) + " time taken: " + timeDifference);
                                                         } else {
                                                             LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
                                                         }
