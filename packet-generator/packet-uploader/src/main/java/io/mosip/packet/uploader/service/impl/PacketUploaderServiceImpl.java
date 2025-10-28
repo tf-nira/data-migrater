@@ -131,7 +131,7 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
         return retryTemplate.execute(retryCallback);
     }
 
-        private synchronized void syncRIDToServer(List<PacketUploadDTO> packets, Long startTime, String trackerRefId) throws Exception {
+        private void syncRIDToServer(List<PacketUploadDTO> packets, Long startTime, String trackerRefId) throws Exception {
 
         List<SyncRegistrationDTO> syncDtoList = getPacketSyncDtoList(packets);
             LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncRIDToServer()", "Time Taken for getPacketSyncDtoList() Reference ID : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
