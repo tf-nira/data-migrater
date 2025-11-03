@@ -89,6 +89,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     
     @Value("${mosip.packet.on-demand.nin.column.name}")
     private String onDemandNINColumnName;
+    
+    @Value("${mosip.datauploader.interval.seconds:5}")
+    private long dataUploaderIntervalSeconds;
 
     @Autowired
     ValidationUtil validationUtil;
@@ -326,13 +329,17 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     public void run() {
                         String packetId=null;
                         try {
+                        	LOGGER.info("Upload job started");
+                        	if(uploadExector.getCurrentPendingCount() <= 0 && !isUploadInProgress)
+                                uploadProcessStarted = false;
                             if(!uploadProcessStarted) {
                                 uploadProcessStarted = true;
                                 isUploadInProgress = true;
                                 List<String> statusList = new ArrayList<>();
                                 statusList.add("READY_TO_SYNC");
-                                List<PacketTracker> trackerList =  packetTrackerRepository.findByStatusIn(statusList);
-
+                                List<PacketTracker> trackerList =  packetTrackerRepository.findByStatusInWithLimit(statusList, uploadMaxRecordsCountPerThreadPool * uploadMaxThreadPoolCount);
+                                LOGGER.info("Records picked to upload: " + trackerList.size());
+                                
                                 if(trackerList.size() <= 0) {
                                     uploadExector.setInputProcessCompleted(true);
                                 } else {
@@ -372,7 +379,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                             LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Error for Packet Id : " + packetId + " - " + e.getMessage() + ExceptionUtils.getStackTrace(e));
                         }
                     }
-                }, 0, 5000L);
+                }, 0, dataUploaderIntervalSeconds * 1000);
             }
 
             if(!enableOnlyPacketUploader)

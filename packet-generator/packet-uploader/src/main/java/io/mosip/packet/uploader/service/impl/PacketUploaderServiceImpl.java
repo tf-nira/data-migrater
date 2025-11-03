@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -79,6 +80,9 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
 
         @Value("${packet.manager.account.name}")
         private String packetUploadPath;
+        
+        @Value("${mosip.packet.archive.required:true}")
+        private boolean archivePacketZip;
 
         private RetryTemplate retryTemplate;
 
@@ -131,7 +135,7 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
         return retryTemplate.execute(retryCallback);
     }
 
-        private synchronized void syncRIDToServer(List<PacketUploadDTO> packets, Long startTime, String trackerRefId) throws Exception {
+        private void syncRIDToServer(List<PacketUploadDTO> packets, Long startTime, String trackerRefId) throws Exception {
 
         List<SyncRegistrationDTO> syncDtoList = getPacketSyncDtoList(packets);
             LOGGER.debug("SESSION_ID", "PACKET_SYNC", "syncRIDToServer()", "Time Taken for getPacketSyncDtoList() Reference ID : " + trackerRefId + " (" + TimeUnit.MILLISECONDS.convert(System.nanoTime()-startTime, TimeUnit.NANOSECONDS) + " ms)");
@@ -269,12 +273,19 @@ public class PacketUploaderServiceImpl  implements PacketUploaderService {
             String status = (String) responseBody.get(RegistrationConstants.UPLOAD_STATUS);
 
             if(status.equals("Packet has reached Packet Receiver")) {
-                Path path = Paths.get(System.getProperty("user.dir"), "home/Archieve");
-                File archieveFile = path.toFile();
-                if(!archieveFile.exists())
-                    archieveFile.mkdirs();
-
-                packet.renameTo(new File(path.toAbsolutePath().toString() + "//" + packet.getName()));
+                if (archivePacketZip) {
+					Path path = Paths.get(System.getProperty("user.dir"), "home/Archieve");
+					File archieveFile = path.toFile();
+					if (!archieveFile.exists())
+						archieveFile.mkdirs();
+					packet.renameTo(new File(path.toAbsolutePath().toString() + "//" + packet.getName()));
+				} else {
+					try {
+				        Files.deleteIfExists(packet.toPath());
+				    } catch (IOException e) {
+				    	LOGGER.info("Error while deleting file: " + e.getMessage());
+				    }
+				}
             }
 
             return status;
