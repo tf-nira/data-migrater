@@ -510,7 +510,7 @@ public class PacketCreator {
         return auditList;
     }
 
-    public void setMetaData(Map<String, String> metaInfoMap, PacketDto packetDto, DBImportRequest dbImportRequest) throws JsonProcessingException {
+    public void setMetaData(Map<String, String> metaInfoMap, PacketDto packetDto, DBImportRequest dbImportRequest, String dateOfEnrollment) throws JsonProcessingException {
         Map<String, String> metaData = new LinkedHashMap<>();
         metaData.put(PacketManagerConstants.REGISTRATIONID, packetDto.getId());
         metaData.put(RegistrationConstants.PACKET_APPLICATION_ID, packetDto.getId());
@@ -530,6 +530,7 @@ public class PacketCreator {
         metaInfoMap.put("blockListedWords", mapper.writeValueAsString(  blocklistedWordsRepository.findAllActiveBlockListedWords()));
         metaInfoMap.put("capturedNonRegisteredDevices", mapper.writeValueAsString(new ArrayList<>()));
         metaInfoMap.put("printingName", mapper.writeValueAsString(new ArrayList<>()));
+        metaInfoMap.put("enrollmentDate", dateOfEnrollment);
         setOperationsData(metaInfoMap);
     }
 

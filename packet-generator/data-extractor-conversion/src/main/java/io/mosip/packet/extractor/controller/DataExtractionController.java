@@ -9,6 +9,7 @@ import io.mosip.packet.core.dto.NINDetailsResponseDto;
 import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.RequestWrapper;
 import io.mosip.packet.core.dto.ResponseWrapper;
+import io.mosip.packet.core.dto.dbimport.CreatePacketRequest;
 import io.mosip.packet.core.dto.dbimport.DBImportRequest;
 import io.mosip.packet.core.dto.dbimport.DBImportResponse;
 import io.mosip.packet.core.dto.dbimport.PacketCreatorResponse;
@@ -231,6 +232,24 @@ public class DataExtractionController {
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: entry");
             responseWrapper.setResponse(dataExtractionService.getPacketStatus(request.getRequest()));
             LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: getPacketStatus():: exit");
+        }  catch (Exception e) {
+            e.printStackTrace();
+            ServiceError error = new ServiceError();
+            error.setErrorCode("IX-0001");
+            error.setMessage("Error : " + e.getMessage());
+            responseWrapper.getErrors().add(error);
+            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, error.getErrorCode(), error.getMessage());
+        }
+        return new ResponseEntity<ResponseWrapper>(responseWrapper, HttpStatus.OK);
+    }
+    
+    @PostMapping(value = "/createPacket", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ResponseWrapper> createPacket(@RequestBody RequestWrapper<CreatePacketRequest> request) {
+        ResponseWrapper<PacketResponseDto> responseWrapper = new ResponseWrapper();
+        try {
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: createPacket():: entry");
+            responseWrapper.setResponse(dataExtractionService.createPacket(request.getRequest()));
+            LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "DataExtractionController :: createPacket():: exit");
         }  catch (Exception e) {
             e.printStackTrace();
             ServiceError error = new ServiceError();

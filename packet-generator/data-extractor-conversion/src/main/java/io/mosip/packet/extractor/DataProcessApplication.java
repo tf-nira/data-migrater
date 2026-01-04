@@ -49,6 +49,10 @@ public class DataProcessApplication {
                 SESSION_KEY = context.getEnvironment().getProperty("mosip.packet.creator.use.existing.session.key");
             else
                 SESSION_KEY = RandomStringUtils.randomAlphanumeric(20);
+            if(context.getEnvironment().getProperty("mosip.packet.creator.use.existing.offset.session.key") != null)
+            	OFFSET_SESSION_KEY = context.getEnvironment().getProperty("mosip.packet.creator.use.existing.offset.session.key");
+            else
+            	OFFSET_SESSION_KEY = SESSION_KEY;
 
             context.getBean(MockDeviceUtil.class).resetDevices();
             context.getBean(MockDeviceUtil.class).initDeviceHelpers();
@@ -59,26 +63,26 @@ public class DataProcessApplication {
                 context.getBean(DataReProcessorApiFactory.class).reProcess();
 
             if(internal) {
-                System.out.println("Current Session Key is " + SESSION_KEY + ". Please Enter New Session Key in-case Change.");
-                String sessionKey = "";
+//                System.out.println("Current Session Key is " + SESSION_KEY + ". Please Enter New Session Key in-case Change.");
+//                String sessionKey = "";
+//
+//                if(!IS_RUNNING_AS_BATCH) {
+//                    Scanner scanner = new Scanner(System.in);
+//                    sessionKey = scanner.next();
+//                    SESSION_KEY = sessionKey.trim().toUpperCase();
+//                }
+//
+//                System.out.println("Current Flow Enabled for  " + getActivityName() + " . Do you want to Continue (Y-Yes, N-No)");
+//                String option = "";
+//
+//                if(!IS_RUNNING_AS_BATCH) {
+//                    Scanner scanner = new Scanner(System.in);
+//                    option = scanner.next();
+//                } else {
+//                    option = "Y";
+//                }
 
-                if(!IS_RUNNING_AS_BATCH) {
-                    Scanner scanner = new Scanner(System.in);
-                    sessionKey = scanner.next();
-                    SESSION_KEY = sessionKey.trim().toUpperCase();
-                }
-
-                System.out.println("Current Flow Enabled for  " + getActivityName() + " . Do you want to Continue (Y-Yes, N-No)");
-                String option = "";
-
-                if(!IS_RUNNING_AS_BATCH) {
-                    Scanner scanner = new Scanner(System.in);
-                    option = scanner.next();
-                } else {
-                    option = "Y";
-                }
-
-                if(option.equalsIgnoreCase("Y")) {
+                if(IS_RUNNING_AS_BATCH) {
                     FileInputStream io = new FileInputStream("./ApiRequest.json");
                     String requestJson = new String(io.readAllBytes(), StandardCharsets.UTF_8);
                     ObjectMapper mapper = new ObjectMapper();

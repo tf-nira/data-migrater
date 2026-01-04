@@ -89,6 +89,8 @@ public class MosipPacketDTOProcessor implements DataProcessor {
                 try {
                     HashMap<String, String> csvMap = qualityWriterFactory.getDataMap();
                     HashMap<String, String> metaInfo = new HashMap<>();
+                    String dateOfEnrollment = dataHashMap.get(FieldCategory.DEMO).get("ENROLLMENT_TIMESTAMP").toString();
+                    LOGGER.info("Enrollment date for " + registrationId + " is : " + dateOfEnrollment);
 
                     PacketDto packetDto = new PacketDto();
                     packetDto.setProcess(dbImportRequest.getProcess());
@@ -125,7 +127,7 @@ public class MosipPacketDTOProcessor implements DataProcessor {
                     qualityWriterFactory.writeQualityData(csvMap);
 
                     packetDto.setRefId(ConfigUtil.getConfigUtil().getCenterId() + "_" + ConfigUtil.getConfigUtil().getMachineId());
-                    packetCreator.setMetaData(metaInfo, packetDto, dbImportRequest);
+                    packetCreator.setMetaData(metaInfo, packetDto, dbImportRequest, dateOfEnrollment);
                     packetDto.setMetaInfo(metaInfo);
                     packetDto.setAudits(packetCreator.setAudits(packetDto.getId()));
                     timeDifference = System.nanoTime()-startTime;

@@ -45,6 +45,7 @@ import lombok.SneakyThrows;
 import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
@@ -53,7 +54,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -85,6 +89,9 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     
     @Value("${mosip.packet.on-demand.nin.column.name}")
     private String onDemandNINColumnName;
+    
+    @Value("${mosip.datauploader.interval.seconds:5}")
+    private long dataUploaderIntervalSeconds;
 
     @Autowired
     ValidationUtil validationUtil;
@@ -140,7 +147,13 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 
     @Autowired
     private Activity activity;
-    
+
+    @Autowired
+    private Environment env;
+
+    private static Connection conn = null;
+    private static String connectionHost = null;
+
     @PostConstruct
     public void runAtStartup() {
     	if (!IS_RUNNING_AS_BATCH) {
@@ -283,7 +296,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
                     trackerRequestDto.setComments("Object Ready For Processing");
                     trackerUtil.addTrackerEntry(trackerRequestDto);
-                    LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "DataProcessor", "Request for Data Processor : " + trackerRequestDto.getRefId() + " : " + mapper.writeValueAsString(dataHashMap));
+//                    LOGGER.debug("SESSION_ID", "QUALITY_CHECK", "DataProcessor", "Request for Data Processor : " + trackerRequestDto.getRefId() + " : " + mapper.writeValueAsString(dataHashMap));
                     DataProcessorResponseDto processObject = dataProcessorApiFactory.process(dbImportRequest, dataHashMap, setter);
 
                     if(!IS_ONLY_FOR_QUALITY_CHECK) {
@@ -316,13 +329,17 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                     public void run() {
                         String packetId=null;
                         try {
+                        	LOGGER.info("Upload job started");
+                        	if(uploadExector.getCurrentPendingCount() <= 0 && !isUploadInProgress)
+                                uploadProcessStarted = false;
                             if(!uploadProcessStarted) {
                                 uploadProcessStarted = true;
                                 isUploadInProgress = true;
                                 List<String> statusList = new ArrayList<>();
                                 statusList.add("READY_TO_SYNC");
-                                List<PacketTracker> trackerList =  packetTrackerRepository.findByStatusIn(statusList);
-
+                                List<PacketTracker> trackerList =  packetTrackerRepository.findByStatusInWithLimit(statusList, uploadMaxRecordsCountPerThreadPool * uploadMaxThreadPoolCount);
+                                LOGGER.info("Records picked to upload: " + trackerList.size());
+                                
                                 if(trackerList.size() <= 0) {
                                     uploadExector.setInputProcessCompleted(true);
                                 } else {
@@ -362,7 +379,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                             LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "Packet Upload Error for Packet Id : " + packetId + " - " + e.getMessage() + ExceptionUtils.getStackTrace(e));
                         }
                     }
-                }, 0, 5000L);
+                }, 0, dataUploaderIntervalSeconds * 1000);
             }
 
             if(!enableOnlyPacketUploader)
@@ -403,20 +420,27 @@ public class DataExtractionServiceImpl implements DataExtractionService {
     public PacketResponseDto getPacketStatus(PacketStatusRequest packetStatusRequest) throws Exception {
     	LOGGER.info("Checking packet status");
     	
-    	updateNinFilter(packetStatusRequest);
+    	//updateNinFilter(packetStatusRequest);
 		
 		LOGGER.info("Starting packet creation");
 
-		return (PacketResponseDto) processPacket(true);
+		return (PacketResponseDto) processPacket(true, packetStatusRequest.getNin(), null);
+    }
+    
+    @Override
+    public PacketResponseDto createPacket(CreatePacketRequest packetStatusRequest) throws Exception {
+		LOGGER.info("Starting packet creation");
+
+        return saveOndemandRequest(packetStatusRequest);
     }
     
     @Override
     public NINDetailsResponseDto getNINDetails(PacketStatusRequest packetStatusRequest) throws Exception {
     	LOGGER.info("Getting packet details for nin");
     	
-    	updateNinFilter(packetStatusRequest);
+    	//updateNinFilter(packetStatusRequest);
 
-		return (NINDetailsResponseDto) processPacket(false);
+		return (NINDetailsResponseDto) processPacket(false, packetStatusRequest.getNin(), null);
     }
     
     private void updateNinFilter(PacketStatusRequest packetStatusRequest) throws Exception {
@@ -459,7 +483,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 		}
     }
     
-    private Object processPacket(boolean isPacketCreationProcess) throws Exception {
+    private Object processPacket(boolean isPacketCreationProcess, String nin, String dependentRid) throws Exception {
     	NINDetailsResponseDto response = new NINDetailsResponseDto();
     	PacketResponseDto packetResponse = new PacketResponseDto();
     	try {
@@ -470,28 +494,32 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 @SneakyThrows
                 @Override
                 public void setResult(Object obj) {
-                	ResultDto resultDto = (ResultDto) obj;
-                    TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
-                    trackerRequestDto.setRegNo(resultDto.getRegNo());
-                    trackerRequestDto.setRefId(resultDto.getRefId());
-                    trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
-                    trackerRequestDto.setActivity(GlobalConfig.getActivityName());
-                    trackerRequestDto.setSessionKey(SESSION_KEY);
-                    trackerRequestDto.setStatus(resultDto.getStatus().toString());
-                    trackerRequestDto.setComments(resultDto.getComments());
-                    trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
-                    trackerUtil.addTrackerEntry(trackerRequestDto);
-                    trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(), onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY, GlobalConfig.getActivityName());
+                	if (isPacketCreationProcess) {
+						ResultDto resultDto = (ResultDto) obj;
+						TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+						trackerRequestDto.setRegNo(resultDto.getRegNo());
+						trackerRequestDto.setRefId(resultDto.getRefId());
+						trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+						trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+						trackerRequestDto.setSessionKey(SESSION_KEY);
+						trackerRequestDto.setStatus(resultDto.getStatus().toString());
+						trackerRequestDto.setComments(resultDto.getComments());
+						trackerRequestDto.setAdditionalMaps(resultDto.getAdditionalMaps());
+						trackerUtil.addTrackerEntry(trackerRequestDto);
+						trackerUtil.addTrackerLocalEntry(resultDto.getRefId(), null, resultDto.getStatus(),
+								onDemandDbImportRequest.getProcess(), resultDto.getComments(), SESSION_KEY,
+								GlobalConfig.getActivityName());
+					}
                 }
             };
 			
 			LOGGER.info("Validating request for filters");
 			validationUtil.validateRequest(onDemandDbImportRequest, enumList);
 			
-			dataReaderApiFactory.connectDataReader(onDemandDbImportRequest);
+			dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
 			BooleanWrapper isPacketProcessed = new BooleanWrapper();
 			isPacketProcessed.setValue(false);
-			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketProcessed);
+			Map<FieldCategory, HashMap<String, Object>> dataHashMap = dataReaderApiFactory.readDataOnDemand(onDemandDbImportRequest, null, fieldsCategoryMap, isPacketProcessed, isPacketCreationProcess, nin);
 			
 			if (dataHashMap == null || dataHashMap.isEmpty()) {
 				throw new Exception("No data found for given nin");
@@ -501,15 +529,15 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 				response.setRid(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
 		        
 				if (!isPacketProcessed.isValue()) {
-	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
-	                trackerRequestDto.setRegNo(null);
-	                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
-	                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
-	                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
-	                trackerRequestDto.setSessionKey(SESSION_KEY);
-	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
-	                trackerRequestDto.setComments("Object Ready For Processing");
-	                trackerUtil.addTrackerEntry(trackerRequestDto);
+//	                TrackerRequestDto trackerRequestDto = new TrackerRequestDto();
+//	                trackerRequestDto.setRegNo(null);
+//	                trackerRequestDto.setRefId(dataHashMap.get(FieldCategory.DEMO).get(onDemandDbImportRequest.getTrackerInfo().getTrackerColumn()).toString());
+//	                trackerRequestDto.setProcess(onDemandDbImportRequest.getProcess());
+//	                trackerRequestDto.setActivity(GlobalConfig.getActivityName());
+//	                trackerRequestDto.setSessionKey(SESSION_KEY);
+//	                trackerRequestDto.setStatus(TrackerStatus.STARTED.toString());
+//	                trackerRequestDto.setComments("Object Ready For Processing");
+//	                trackerUtil.addTrackerEntry(trackerRequestDto);
 	                
 					LOGGER.info("Processing data to get packet details");
 					DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
@@ -538,6 +566,10 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 	                trackerRequestDto.setComments("Object Ready For Processing");
 	                trackerUtil.addTrackerEntry(trackerRequestDto);
 	                
+	                if (dependentRid != null) {
+	                	dataHashMap.get(FieldCategory.DEMO).put("dependentRid", dependentRid);
+	                }
+	                
 	                LOGGER.info("Processing data");
 	                DataProcessorResponseDto processObject = dataProcessorApiFactory.process(onDemandDbImportRequest, dataHashMap, setter);
 
@@ -557,9 +589,7 @@ public class DataExtractionServiceImpl implements DataExtractionService {
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw e;
-		} finally {
-            dataReaderApiFactory.disconnectDataReader();
-        }
+		}
     	
     	return isPacketCreationProcess ? packetResponse : response;
     }
@@ -717,5 +747,11 @@ public class DataExtractionServiceImpl implements DataExtractionService {
                 }
             }
         }
+    }
+
+    private PacketResponseDto saveOndemandRequest(CreatePacketRequest request) throws Exception {
+
+        dataReaderApiFactory.setupDatabase(onDemandDbImportRequest);
+        return dataReaderApiFactory.insertOnDemandData(request.getNin(), request.getDependentRid());
     }
 }

@@ -9,6 +9,7 @@ import io.mosip.packet.core.constant.activity.ActivityName;
 import io.mosip.packet.core.constant.database.QueryLimitSetter;
 import io.mosip.packet.core.constant.database.QueryOffsetLimitSetter;
 import io.mosip.packet.core.dto.BooleanWrapper;
+import io.mosip.packet.core.dto.PacketResponseDto;
 import io.mosip.packet.core.dto.dbimport.*;
 import io.mosip.packet.core.logger.DataProcessLogger;
 import io.mosip.packet.core.service.thread.CustomizedThreadPoolExecutor;
@@ -24,13 +25,17 @@ import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.sql.*;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import javax.annotation.PreDestroy;
 
 import static io.mosip.packet.core.constant.GlobalConfig.SESSION_KEY;
 import static io.mosip.packet.core.constant.GlobalConfig.*;
@@ -72,9 +77,18 @@ public class DataBaseUtil implements DataReader {
 
     @Value("${mosip.packet.tracker.filter.enabled:false}")
     private boolean isPackerTrackerFilterRequired;
+    
+    @Value("${mosip.ondemand.filter.enabled:false}")
+    private boolean isOndemandFilterRequired;
+    
+    @Value("${mosip.datareader.interval.seconds:70}")
+    private long dataReaderIntervalSeconds;
 
     @Autowired
     private Activity activity;
+
+    @Autowired
+    private Environment env;
 
     private boolean oneTimeCheckForZeroOffset;
 
@@ -120,6 +134,55 @@ public class DataBaseUtil implements DataReader {
         }
 
     }
+    
+    @Override
+    public void setupDatabase(DBImportRequest dbImportRequest) throws SQLException {
+        try {
+            if(dataSource == null) {
+            	HikariConfig config = new HikariConfig();
+            	config.setUsername(dbImportRequest.getUserId());
+            	config.setPassword(dbImportRequest.getPassword());
+            	config.setJdbcUrl(dbImportRequest.getOracleDBUrl());
+            	
+                config.setMaximumPoolSize(dbImportRequest.getMaximumPoolSize()); // Max number of connections in the pool
+                config.setMinimumIdle(dbImportRequest.getMinimumIdleConnections());    // Min number of idle connections
+                config.setConnectionTimeout(dbImportRequest.getConnectionTimeout()); // Max time to wait for a connection (ms)
+                config.setIdleTimeout(dbImportRequest.getIdleTimeout()); // Max idle time before closing (ms) - 10 minutes
+                config.setMaxLifetime(dbImportRequest.getMaxLifeTime()); // Max connection lifetime (ms) - 30 minutes
+                config.setLeakDetectionThreshold(dbImportRequest.getLeakDetectionThreshold()); // Detect connection leaks (ms)
+
+                config.setConnectionTestQuery("SELECT 1 FROM DUAL"); // For Oracle
+                dataSource = new HikariDataSource(config);
+                
+            	dbType = dbImportRequest.getDbType();
+//              Class driverClass = Class.forName(dbType.getDriver());
+//              DriverManager.registerDriver((Driver) driverClass.newInstance());
+                String connectionHost = String.format(dbType.getDriverUrl(), dbImportRequest.getUrl(), dbImportRequest.getPort(), dbImportRequest.getDatabaseName());
+//              conn = DriverManager.getConnection(connectionHost, dbImportRequest.getUserId(), dbImportRequest.getPassword());
+
+                isTrackerSameHost = trackerUtil.isTrackerHostSame(connectionHost, dbImportRequest.getDatabaseName());
+                trackColumn = dbImportRequest.getTrackerInfo().getTrackerColumn();
+
+                LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, "External DataBase" + dbImportRequest.getUrl() +  "Database Successfully connected");
+                System.out.println("External DataBase " + dbImportRequest.getUrl() + " Successfully connected");
+            }
+        } catch (Exception e) {
+            LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Connecting Database " + ExceptionUtils.getStackTrace(e));
+            System.exit(1);
+        }
+    }
+    
+    @PreDestroy
+    public void closeDatabaseSetup() {
+		if (dataSource != null) {
+			try {
+				dataSource.close();
+			} catch (Exception e) {
+				LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID,
+						" Error While Closing Database Connection " + e.getMessage());
+			}
+		}
+	}
 
     private void initializeDocumentMap(DBImportRequest dbImportRequest, Map<String, HashMap<String, String>> fieldsCategoryMap) {
         if(documentValue.isEmpty())
@@ -142,7 +205,7 @@ public class DataBaseUtil implements DataReader {
             }
     }
 
-    private String generateQuery(TableRequestDto tableRequestDto, Map<FieldCategory, HashMap<String, Object>> dataMap, Map<String, HashMap<String, String>> fieldsCategoryMap) throws Exception {
+    private String generateQuery(TableRequestDto tableRequestDto, Map<FieldCategory, HashMap<String, Object>> dataMap, Map<String, HashMap<String, String>> fieldsCategoryMap, String nin) throws Exception {
         if (tableRequestDto.getQueryType().equals(QuerySelection.TABLE)) {
             String tableName = tableRequestDto.getTableNameWithOutSchema();
             List<String> ignoreFields = commonUtil.getNonIdSchemaNonTableFieldsMap();
@@ -202,6 +265,11 @@ public class DataBaseUtil implements DataReader {
 
                 selectSql += filterCondition;
             }
+            
+            if (nin != null) {
+            	filterCondition = " WHERE NATIONAL_ID = '" + nin + "' ";
+            	selectSql += filterCondition;
+            }
 
             filterCondition = "";
 
@@ -216,9 +284,21 @@ public class DataBaseUtil implements DataReader {
 
                     filterCondition += trackColumn + String.format(" NOT IN (SELECT REF_ID FROM %s WHERE SESSION_KEY = '%s') ", TRACKER_TABLE_NAME, SESSION_KEY);
                     selectSql += filterCondition;
+                } else {
+                	selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
                 }
-
-                selectSql += " ORDER BY  " + (applicationIdColumn != null && !applicationIdColumn.isEmpty() ? applicationIdColumn : trackColumn);
+                
+                if (isOndemandFilterRequired) {
+                	if (!whereCondition) {
+                        filterCondition = " WHERE ";
+                        whereCondition=true;
+                    } else {
+                        filterCondition = " AND ";
+                    }
+                	
+                	filterCondition += "NATIONAL_ID NOT IN (SELECT NIN FROM ONDEMAND) ";
+                    selectSql += filterCondition;
+                }
 
                 if(tableRequestDto.getExecutionOrderSequence() == 1) {
                 if(!isPackerTrackerFilterRequired || !isTrackerSameHost)
@@ -228,7 +308,27 @@ public class DataBaseUtil implements DataReader {
             }
             }
             String sqlQuery =  formatter.replaceColumntoDataIfAny(selectSql, dataMap);
-            LOGGER.debug("SESSION_ID", "DATA_READER", "generateQuery()", "SQL Query Generated : " + sqlQuery);
+			sqlQuery ="SELECT SPOUSE_GIVEN_NAMES,GUARDIAN_GIVEN_NAMES,MOTHER_DISTRICT_ORIGIN,OTHER_NAMES_MOTHER,GIVEN_NAMES_MOTHER,NATIONAL_ID,FATHER_CLAN,MOTHER_CITIZEN_TYPE,PARISH_MOTHER,DISTRICT_OF_PREV_RESIDENCE,SPOUSE_MAIDEN_NAMES,VILLAGE_FATHER,DD_REG_SURNAME,DISTRICT_OF_BIRTH,FATHER_TRIBE,GUARDIAN_COUNTY,DISABILITY_PHYSICAL,GUARDIAN_OTHER_NAMES,TYPE_OF_MARRIAGE,EMAIL1,VILLAGE_OF_ORIGIN,RELIGION,DOCUMENT_ID,DISTRICT_RESIDENCE_PARISH,PROFESSION,MOTHER_COMMUNITY,DD_REG_OTHER_NAMES,MOTHER_PREVIOUS_NAME,MOTHER_TRIBE,DISTRICT_RESIDENCE_COUNTY,COUNTY_OF_BIRTH,SEX,CLAN,ROLE,PASSPORT_NUMBER,SPOUSECITIZENSHIPTYPE,DISTRICT_OF_ORIGIN,GIVEN_NAMES_FATHER,MAIDEN_NAME1,HEALTH_FACILITY_OF_BIRTH,FATHERLIVINGSTATUS,DATE_OF_MARRIAGE,INDIGENOUS_COMMUNITY,GUARDIAN_SURNAME,FATHER_DISTRICT_ORIGIN,GUARDIAN_CLAN,SUBCOUNTY_OF_ORIGIN,FATHERNATIONALID,OCCUPATION,SUBCOUNTY_OF_BIRTH,FACE,CITIZENSHIP_TYPE,GIVEN_NAMES,PARISH_OF_ORIGIN,MOTHER_COUNTY_OF_ORIGIN,MARITAL_STATUS,SURNAME_MOTHER,ENROLLMENT_TIMESTAMP,USE_CASE,DISTRICT_OF_RESIDENCE,MOTHERNATIONALID,PREVIOUS_SURNAME1,DD_REG_NATIONAL_ID,DISTRICT_OF_GUARDIAN,STREET_OF_RESIDENCE,GUARDIAN_VILLAGE,GUARDIAN_SUBCOUNTY,FATHER_COUNTY_OF_ORIGIN,RESIDENCESTATUS,PREFFPOLLINGSTATION,GUARDIAN_PARISH,DD_REG_GIVEN_NAMES,CITIZENSHIP_CERTIFICATE_NUMBER,CITY_OF_BIRTH,MOTHEROCCUPATION,FATHERIDDOCUMENTNO,APPLICATION_ID,FINGERPRINT10,DISTRICT_RESIDENCE_SUBCOUNTY,SUBCOUNTY_FATHER,POSTAL_ADDRESS_LINE3,COUNTY_OF_ORIGIN,FATHER_CITIZENSHIP_TYPE,GUARDIAN1NATIONALID,VILLAGE_OF_BIRTH,DISTRICT_RESIDENCE_VILLAGE,SPOUSE_SURNAME,YEARS_NUMBER_OF_RESIDENCE,DATE_OF_BIRTH,FINGERPRINT01,SURNAME,LANDLINE_PHONE_NUMBER,FINGERPRINT02,FINGERPRINT03,HIGHEST_LEVEL_OF_EDUCATION,HOUSE_OF_RESIDENCE,MOTHERIDDOCUMENTNO,PLACE_OF_MARRIAGE,FINGERPRINT08,SURNAME_FATHER,FINGERPRINT09,SUBCOUNTY_MOTHER,FINGERPRINT04,FINGERPRINT05,FINGERPRINT06,FINGERPRINT07,PASSPORT_FILE_NUMBER,MOTHER_LIVING_STATUS,POSTAL_ADDRESS_LINE2,MARRIAGE_CERTIFICATE_NUMBER,POSTAL_ADDRESS_LINE1,OTHER_NAMES,CELLPHONE1,PARISH_FATHER,VILLAGE_MOTHER,PARISH_OF_BIRTH \n" +
+                    "FROM ZTMP_MOSIP_SDMS\n" +
+                    "WHERE ROWID IN (\n" +
+                    "    SELECT r_id FROM (\n" +
+                    "        SELECT rowid as r_id\n" +
+                    "        FROM ZTMP_MOSIP_SDMS s\n" +
+                    "        WHERE ID_CURRENT_STATE = 75 \n" +
+                    "          AND IS_ADULT = 2\n" +
+                    "          AND NOT EXISTS (\n" +
+                    "              SELECT 1 FROM PACKET_TRACKER p \n" +
+                    "              WHERE p.REF_ID = s.APPLICATION_ID \n" +
+                    "                AND p.SESSION_KEY = '" + SESSION_KEY + "'\n" +
+                    "          )\n" +
+                    "          AND NOT EXISTS (\n" +
+                    "              SELECT 1 FROM ONDEMAND o \n" +
+                    "              WHERE o.NIN = s.NATIONAL_ID\n" +
+                    "          )\n" +
+                    "        FETCH NEXT 5000 ROWS ONLY\n" +
+                    "    )\n" +
+                    ")";
+            LOGGER.info("SESSION_ID", "DATA_READER", "generateQuery()", "SQL Query Generated : " + sqlQuery);
             return sqlQuery;
         } else if (tableRequestDto.getQueryType().equals(QuerySelection.SQL_QUERY)) {
             String sqlQuery = tableRequestDto.getSqlQuery().toUpperCase();
@@ -365,6 +465,7 @@ public class DataBaseUtil implements DataReader {
                         PreparedStatement statement1 = null;
                         ResultSet scrollableResultSet = null;
                         try {
+                        	LOGGER.info("Started data reader");
                             Float processPercentage = Float.valueOf((getPendingCountForProcess().floatValue() / Float.valueOf(dbReaderMaxThreadPoolCount * dbReaderMaxRecordsCountPerThreadPool)));
                             LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Database Reader Initial Condition for DB Read  ProcessPercentage, OFFSET_VALUE, OneTimeCheckForZeroOffset, CurrentPendingCount, PendingCountForProcess" +
                                     processPercentage, OFFSET_VALUE, oneTimeCheckForZeroOffset, threadPool.getCurrentPendingCount(), getPendingCountForProcess());
@@ -381,7 +482,7 @@ public class DataBaseUtil implements DataReader {
                                 List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
                                 Collections.sort(tableRequestDtoList);
                                 TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
-                                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap, null), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                                 scrollableResultSet = statement1.executeQuery();
 
                                 if(scrollableResultSet.last()) {
@@ -418,12 +519,14 @@ public class DataBaseUtil implements DataReader {
                                                     populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultMap, dataHashMap, fieldsCategoryMap, false);
 
                                                     if (!trackerUtil.isRecordPresent(dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName())) {
+                                                    	Long startTime = System.currentTimeMillis();
+                                                    	LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Packet creation started for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
                                                         for (int i = 1; i < tableRequestDtoList.size(); i++) {
                                                             PreparedStatement statement2 = null;
                                                             ResultSet resultSet1 = null;
                                                             try {
                                                                 TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
-                                                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataHashMap, fieldsCategoryMap, null), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
                                                                 resultSet1 = statement2.executeQuery();
 
                                                                 Map<String, Object> resultData1 = new HashMap<>();
@@ -442,6 +545,9 @@ public class DataBaseUtil implements DataReader {
                                                             }
                                                         }
                                                         setter.setResult(dataHashMap);
+                                                        Long endTime = System.currentTimeMillis();
+                                                        Long timeDifference = endTime-startTime;
+                                                        LOGGER.info("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Packet creation completed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()) + " time taken: " + timeDifference);
                                                     } else {
                                                         LOGGER.debug("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id" + dataHashMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()));
                                                     }
@@ -467,7 +573,7 @@ public class DataBaseUtil implements DataReader {
                                 statement1.close();
                         }
                     }
-                }, 0,  70000L);
+                }, 0,  dataReaderIntervalSeconds * 1000);
             } else
                 throw new SQLException("Unable to Connect With Database. Please check the Configuration");
         } catch(Exception e) {
@@ -478,87 +584,73 @@ public class DataBaseUtil implements DataReader {
     }
     
     @Override
-    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, BooleanWrapper isPacketProcessed) throws Exception {
+    public Map<FieldCategory, HashMap<String, Object>> readDataOnDemand(DBImportRequest dbImportRequest, Map<FieldCategory, HashMap<String, Object>> dataHashMap, Map<String, HashMap<String, String>> fieldsCategoryMap, BooleanWrapper isPacketProcessed, boolean isPacketCreationProcess, String nin) throws Exception {
     	LOGGER.info("Reading data from database for given nin");
     	
     	Map<FieldCategory, HashMap<String, Object>> dataMap = new HashMap<>();
-        try {
-            if (conn != null) {
-                LOGGER.info("Connection is not null");
-                initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
-                
-                PreparedStatement statement1 = null;
-                ResultSet scrollableResultSet = null;
-                
-                if(IS_TRACKER_REQUIRED)
-                    trackerUtil.closeStatement();
-                
-                List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
-                Collections.sort(tableRequestDtoList);
-                TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
-                statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                LOGGER.info("Checking for connection validity");
-                if(conn.isValid(6000)) {
-                    LOGGER.info("Connection is valid, execution the statement query");
-                	scrollableResultSet = statement1.executeQuery();
-                }else {
-                	conn.close();
-                	connectDatabase(dbImportRequest);
-                	statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                	scrollableResultSet = statement1.executeQuery();
-                    LOGGER.info("Connection is closed, created new connection and executing the query");
-                }
+        try (Connection conn = dataSource.getConnection()) {
+        	LOGGER.info("Connection acquired from pool");
+            initializeDocumentMap(dbImportRequest, fieldsCategoryMap);
+            
+            PreparedStatement statement1 = null;
+            ResultSet scrollableResultSet = null;
+            
+            if(IS_TRACKER_REQUIRED)
+                trackerUtil.closeStatement();
+            
+            List<TableRequestDto> tableRequestDtoList = dbImportRequest.getTableDetails();
+            Collections.sort(tableRequestDtoList);
+            TableRequestDto tableRequestDto = tableRequestDtoList.get(0);
+            statement1 = conn.prepareStatement(generateQuery(tableRequestDto, dataHashMap, fieldsCategoryMap, nin), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+            scrollableResultSet = statement1.executeQuery();
 
-                if (scrollableResultSet.first()) {
-                    try {
-                    	LOGGER.info("extracting data to desired format");
-                        Map<String, Object> resultData = extractResultSet(scrollableResultSet);
+            if (scrollableResultSet.first()) {
+                try {
+                	LOGGER.info("extracting data to desired format");
+                    Map<String, Object> resultData = extractResultSet(scrollableResultSet);
 
-                        populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
+                    populateDataFromResultSet(tableRequestDto, dbImportRequest.getColumnDetails(), resultData, dataMap, fieldsCategoryMap, false);
 
-                        if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketProcessed.isValue()) {
-                        	for (int i = 1; i < tableRequestDtoList.size(); i++) {
-                                PreparedStatement statement2 = null;
-                                ResultSet resultSet1 = null;
-                                try {
-                                    TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
-                                    statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                                    resultSet1 = statement2.executeQuery();
+                    if (!trackerUtil.isRecordPresent(dataMap.get(FieldCategory.DEMO).get(dbImportRequest.getTrackerInfo().getTrackerColumn()), GlobalConfig.getActivityName()) || !isPacketCreationProcess) {
+                    	for (int i = 1; i < tableRequestDtoList.size(); i++) {
+                            PreparedStatement statement2 = null;
+                            ResultSet resultSet1 = null;
+                            try {
+                                TableRequestDto tableRequestDto1 = tableRequestDtoList.get(i);
+                                statement2 = conn.prepareStatement(generateQuery(tableRequestDto1, dataMap, fieldsCategoryMap, nin), ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                                resultSet1 = statement2.executeQuery();
 
-                                    Map<String, Object> resultData1 = new HashMap<>();
-                                    while (resultSet1 != null && resultSet1.next()) {
-                                        resultData1.putAll(extractResultSet(resultSet1));
-                                    }
-
-                                    if (resultData1 != null)
-                                        populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataMap, fieldsCategoryMap, false);
-                                } finally {
-                                    if (resultSet1 != null)
-                                        resultSet1.close();
-
-                                    if (statement2 != null)
-                                        statement2.close();
+                                Map<String, Object> resultData1 = new HashMap<>();
+                                while (resultSet1 != null && resultSet1.next()) {
+                                    resultData1.putAll(extractResultSet(resultSet1));
                                 }
-                            }
-                        } else {
-                        	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
-                        	isPacketProcessed.setValue(true);
-                        }
-                    } catch (Exception e) {
-                        LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
-                        throw e;
-                    } finally {
-                        if (scrollableResultSet != null)
-                            scrollableResultSet.close();
 
-                        if (statement1 != null)
-                            statement1.close();
+                                if (resultData1 != null)
+                                    populateDataFromResultSet(tableRequestDto1, dbImportRequest.getColumnDetails(), resultData1, dataMap, fieldsCategoryMap, false);
+                            } finally {
+                                if (resultSet1 != null)
+                                    resultSet1.close();
+
+                                if (statement2 != null)
+                                    statement2.close();
+                            }
+                        }
+                    } else {
+                    	LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Record Already Processed for ref_id");
+                    	isPacketProcessed.setValue(true);
                     }
-                } else {
-                	LOGGER.info("No data found for given nin in database");
+                } catch (Exception e) {
+                    LOGGER.error("SESSION_ID", APPLICATION_NAME, APPLICATION_ID, " Error While Extracting Data " + (new Gson()).toJson(dataHashMap) + " Stack Trace : " + ExceptionUtils.getStackTrace(e));
+                    throw e;
+                } finally {
+                    if (scrollableResultSet != null)
+                        scrollableResultSet.close();
+
+                    if (statement1 != null)
+                        statement1.close();
                 }
             } else {
-                throw new SQLException("Unable to Connect With Database. Please check the Configuration");
+            	LOGGER.info("No data found for given nin in database");
             }
         } catch (Exception e) {
             throw e;
@@ -576,5 +668,59 @@ public class DataBaseUtil implements DataReader {
     @Override
     public void disconnectDataReader() {
         closeConnection();
+    }
+
+    @Override
+    public PacketResponseDto insertOnDemandData(String nin, String dependantRid) throws Exception {
+        PacketResponseDto res = new PacketResponseDto();
+        try (Connection conn = dataSource.getConnection()) {
+            String checkSql = "SELECT NATIONAL_ID, APPLICATION_ID FROM ZTMP_MOSIP_SDMS WHERE NATIONAL_ID = ?";
+
+            PreparedStatement checkPs = conn.prepareStatement(checkSql);
+            checkPs.setString(1, nin);
+            ResultSet result = checkPs.executeQuery();
+
+            // Collect APPLICATION_IDs in a list
+            List<String> applicationIds = new ArrayList<>();
+            int rowCount = 0;
+            while (result.next()) {
+                applicationIds.add(result.getString("APPLICATION_ID"));
+                rowCount++;
+            }
+
+            if (rowCount == 0) {
+                throw new Exception("No data found for given nin");
+            }
+
+            res.setRid(applicationIds.get(0));
+
+            String tableName = env.getProperty("spring.datasource.ondemand.table.name");
+            String sql = String.format(
+                    "INSERT INTO %s (\"NIN\", \"DEPENDANT_RID\", \"APPLICATION_ID\", \"CR_DTIMES\") " +
+                            "VALUES (?, ?, ?, ?)",
+                    tableName
+            );
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+
+            try {
+                ps.setString(1, nin);
+                ps.setString(2, dependantRid);
+                ps.setString(3, applicationIds.get(0));
+                ps.setString(4, LocalDateTime.now().toString());
+                int rowsInserted = ps.executeUpdate();
+
+                LOGGER.info("Ondemand Data Inserted :: " + rowsInserted);
+                res.setStatus("Ondemand Initiated");
+
+            } catch (SQLException e) {
+                if (e.getMessage().contains("unique constraint")) {
+                    res.setStatus("Packet already processed");
+                }
+                else throw e;
+            }
+
+            return res;
+        }
     }
 }
